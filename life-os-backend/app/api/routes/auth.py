@@ -6,6 +6,7 @@ from typing import Dict, Any
 
 from app.core.database import get_db
 from app.core.auth import get_current_user, get_current_user_required
+from app.models.user import User
 from app.services.user_service import UserService
 from app.services.firebase_auth_service import firebase_auth
 from app.schemas.user import UserResponse
@@ -41,26 +42,18 @@ async def verify_token(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_profile(
-    current_user: dict = Depends(get_current_user_required),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user_required)
 ):
     """Get current authenticated user's profile."""
-    user_service = UserService(db)
-    firebase_uid = current_user['uid']
-    user = user_service.get_user_by_firebase_uid(firebase_uid)
-
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    return user_service.get_user_response(user)
+    return UserResponse.model_validate(current_user)
 
 
 @router.get("/firebase-user")
 async def get_firebase_user_info(
-    current_user: dict = Depends(get_current_user_required)
+    current_user: User = Depends(get_current_user_required)
 ):
     """Get current user's Firebase information."""
-    firebase_user = await firebase_auth.get_user(current_user['uid'])
+    firebase_user = await firebase_auth.get_user(current_user.firebase_uid)
     if not firebase_user:
         raise HTTPException(status_code=404, detail="Firebase user not found")
 

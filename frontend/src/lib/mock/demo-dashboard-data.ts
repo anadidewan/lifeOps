@@ -15,7 +15,12 @@ export interface PlanTask {
 export type WeeklyBlockVariant = "violet" | "blue" | "neutral";
 
 export interface WeeklyPlanBlock {
+  /** Full line for modals and assistive labels */
   text: string;
+  /** Short title on the week thumbnail */
+  headline: string;
+  /** Secondary line: duration, focus, or format */
+  subline?: string;
   variant: WeeklyBlockVariant;
 }
 
@@ -37,13 +42,48 @@ export function getDemoDueSummaryLine(atRiskCount = 1): string {
 }
 
 export const mockWeeklyPlan: WeeklyPlanBlock[] = [
-  { text: "Mon: Econ (2h)", variant: "violet" },
-  { text: "Tue: DB Project (3h)", variant: "blue" },
-  { text: "Wed: Meeting Review", variant: "neutral" },
-  { text: "Thu: Calculus (2h)", variant: "blue" },
-  { text: "Fri: AI Society Slides", variant: "violet" },
-  { text: "Sat: Revision", variant: "neutral" },
-  { text: "Sun: Buffer / Catch Up", variant: "neutral" },
+  {
+    text: "Economics — problem set & readings",
+    headline: "Economics",
+    subline: "2h · deep work",
+    variant: "violet",
+  },
+  {
+    text: "Database project — schema & queries",
+    headline: "DB project",
+    subline: "3h · build",
+    variant: "blue",
+  },
+  {
+    text: "Meeting review — notes & follow-ups",
+    headline: "Meeting",
+    subline: "Review & email",
+    variant: "neutral",
+  },
+  {
+    text: "Calculus — problem set",
+    headline: "Calculus",
+    subline: "2h · practice",
+    variant: "blue",
+  },
+  {
+    text: "AI Society — slide deck",
+    headline: "AI Society",
+    subline: "Slides draft",
+    variant: "violet",
+  },
+  {
+    text: "Weekly revision — light review",
+    headline: "Revision",
+    subline: "Light session",
+    variant: "neutral",
+  },
+  {
+    text: "Buffer — catch up or rest",
+    headline: "Buffer day",
+    subline: "Flexible",
+    variant: "neutral",
+  },
 ];
 
 export const mockFailureAlert = {

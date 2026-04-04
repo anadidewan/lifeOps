@@ -3,14 +3,25 @@
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
+  Angry,
+  Annoyed,
+  BookOpen,
+  CalendarDays,
+  Database,
   ExternalLink,
+  Flame,
+  Frown,
   Mail,
+  Smile,
   Sparkles,
   TrendingUp,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import { DayPlanDetailModal } from "@/components/dashboard/DayPlanDetailModal";
 import { EndOfDayReviewModal } from "@/components/dashboard/EndOfDayReviewModal";
 import { GlassCard } from "@/components/landing/GlassCard";
+import { getDetailedPlanTasksForWeekday } from "@/lib/dashboard/day-plan-detail";
 import { getTodaysPlanTasks } from "@/lib/dashboard/todays-plan-tasks";
 import {
   getDemoDueSummaryLine,
@@ -27,18 +38,47 @@ import {
 } from "@/lib/mock/demo-dashboard-data";
 import { cn } from "@/lib/cn";
 
-const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+/** Mon = 0 … Sun = 6, aligned with `mockWeeklyPlan` indices. */
+function mondayFirstIndex(d: Date): number {
+  return (d.getDay() + 6) % 7;
+}
 
-const weeklyBlockStyles: Record<WeeklyBlockVariant, string> = {
+function startOfLocalDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function addDays(base: Date, days: number): Date {
+  const x = new Date(base);
+  x.setDate(x.getDate() + days);
+  return x;
+}
+
+const weeklyThumbIcon: Record<WeeklyBlockVariant, LucideIcon> = {
+  violet: BookOpen,
+  blue: Database,
+  neutral: CalendarDays,
+};
+
+const weeklyThumbShell: Record<WeeklyBlockVariant, string> = {
   violet:
-    "rounded-md bg-gradient-to-br from-violet-500/50 to-indigo-600/38 px-1 py-1 text-[8px] font-medium leading-tight text-white ring-1 ring-white/12 shadow-[0_4px_16px_-4px_rgba(139,92,246,0.45)]",
+    "border-l-[3px] border-l-violet-400/95 bg-gradient-to-br from-violet-500/[0.22] via-violet-950/20 to-indigo-950/35 ring-1 ring-inset ring-violet-400/25",
   blue:
-    "rounded-md bg-gradient-to-br from-blue-500/45 to-cyan-600/28 px-1 py-1 text-[8px] font-medium text-blue-50 ring-1 ring-white/10 shadow-[0_4px_16px_-4px_rgba(59,130,246,0.35)]",
+    "border-l-[3px] border-l-sky-400/95 bg-gradient-to-br from-sky-500/[0.2] via-slate-900/25 to-slate-950/40 ring-1 ring-inset ring-sky-400/22",
   neutral:
-    "rounded-md bg-white/[0.07] px-1 py-0.5 text-[7px] text-slate-300 ring-1 ring-white/[0.05]",
+    "border-l-[3px] border-l-slate-500/90 bg-gradient-to-br from-white/[0.09] to-white/[0.02] ring-1 ring-inset ring-white/[0.1]",
 };
 
 const gmailComposeHref = getDemoGmailComposeHref();
+
+const stressLevels = [
+  { id: 0, label: "Not stressed", Icon: Smile, iconClass: "text-emerald-300" },
+  { id: 1, label: "Slightly stressed", Icon: Frown, iconClass: "text-sky-300" },
+  { id: 2, label: "Moderately stressed", Icon: Annoyed, iconClass: "text-amber-300" },
+  { id: 3, label: "Very stressed", Icon: Angry, iconClass: "text-orange-300" },
+  { id: 4, label: "Extremely stressed", Icon: Flame, iconClass: "text-red-300" },
+] as const;
 
 const cardHover = {
   y: -2,
@@ -47,7 +87,34 @@ const cardHover = {
 
 export function DashboardClient() {
   const [eodOpen, setEodOpen] = useState(false);
+  const [stressLevel, setStressLevel] = useState<number | null>(null);
+  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+  const [planModalOpen, setPlanModalOpen] = useState(false);
+  const [planModalDayIndex, setPlanModalDayIndex] = useState(0);
   const todaysPlanTasks = useMemo(() => getTodaysPlanTasks(), []);
+
+  const rollingWeek = useMemo(() => {
+    const today = startOfLocalDay(new Date());
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = addDays(today, i);
+      const block = mockWeeklyPlan[mondayFirstIndex(date)];
+      const weekdayShort = date.toLocaleDateString(undefined, { weekday: "short" });
+      const monthDay = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      return {
+        date,
+        block,
+        weekdayShort,
+        monthDay,
+        isToday: i === 0,
+      };
+    });
+  }, []);
+
+  const planModalDay = rollingWeek[planModalDayIndex] ?? rollingWeek[0];
+  const planModalTasks = useMemo(
+    () => getDetailedPlanTasksForWeekday(mondayFirstIndex(planModalDay.date)),
+    [planModalDay.date]
+  );
 
   return (
     <motion.main
@@ -110,49 +177,158 @@ export function DashboardClient() {
                   <motion.button
                     type="button"
                     onClick={() => setEodOpen(true)}
-                    whileHover={{ y: -1 }}
-                    whileTap={{ scale: 0.995 }}
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.99 }}
                     transition={{ type: "spring", stiffness: 400, damping: 26 }}
                     className={cn(
-                      "w-fit rounded-full border border-white/[0.12] bg-white/[0.05] px-3.5 py-2 text-[12px] font-semibold text-slate-200",
-                      "shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_24px_-10px_rgba(139,92,246,0.35)] backdrop-blur-sm",
-                      "transition-[border-color,background-color,box-shadow] hover:border-violet-400/30 hover:bg-white/[0.08]"
+                      "relative w-fit overflow-hidden rounded-full border border-violet-400/45 bg-gradient-to-r from-violet-600/45 via-fuchsia-500/35 to-indigo-600/40 px-5 py-2.5 text-[13px] font-bold text-white",
+                      "shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_0_32px_-6px_rgba(139,92,246,0.65),0_8px_24px_-12px_rgba(99,102,241,0.55)]",
+                      "ring-2 ring-violet-400/40 ring-offset-2 ring-offset-[rgba(12,14,26,0.95)]",
+                      "backdrop-blur-sm transition-[filter,box-shadow] hover:brightness-110 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_0_40px_-4px_rgba(167,139,250,0.7),0_10px_28px_-10px_rgba(99,102,241,0.6)]"
                     )}
                   >
-                    Done with the day?
+                    <span className="relative z-[1]">Done with the day?</span>
+                    <span
+                      className="pointer-events-none absolute inset-0 bg-gradient-to-t from-white/10 to-transparent"
+                      aria-hidden
+                    />
                   </motion.button>
-                  <span className="w-fit rounded-full bg-emerald-500/18 px-3 py-1 text-[10px] font-semibold text-emerald-200/95 ring-1 ring-emerald-400/28 shadow-[0_0_16px_-6px_rgba(52,211,153,0.45)]">
-                    {mockHeader.aiStatus}
-                  </span>
                 </div>
+              </div>
+            </div>
+
+            <div className="relative border-b border-white/[0.06] bg-white/[0.03] px-4 py-4 backdrop-blur-sm sm:px-6 sm:py-5">
+              <p className="text-center text-sm font-medium text-slate-200 sm:text-left">
+                How stressed do you feel?
+              </p>
+              <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start sm:gap-2.5">
+                {stressLevels.map(({ id, label, Icon, iconClass }) => {
+                  const selected = stressLevel === id;
+                  return (
+                    <motion.button
+                      key={id}
+                      type="button"
+                      onClick={() => setStressLevel(id)}
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 26 }}
+                      aria-pressed={selected}
+                      className={cn(
+                        "flex min-w-[5.5rem] flex-col items-center gap-1.5 rounded-xl border px-2 py-2.5 text-center transition-[border-color,background-color,box-shadow]",
+                        "sm:min-w-0 sm:flex-1 sm:max-w-[7.5rem]",
+                        selected
+                          ? "border-violet-400/50 bg-violet-500/20 shadow-[0_0_24px_-8px_rgba(139,92,246,0.55)] ring-1 ring-violet-400/35"
+                          : "border-white/[0.08] bg-white/[0.04] hover:border-white/[0.14] hover:bg-white/[0.06]"
+                      )}
+                    >
+                      <Icon className={cn("h-5 w-5 shrink-0", iconClass)} strokeWidth={1.75} />
+                      <span className="text-[10px] font-medium leading-tight text-slate-300">{label}</span>
+                    </motion.button>
+                  );
+                })}
               </div>
             </div>
 
             <div className="grid gap-5 p-4 sm:gap-6 sm:p-6">
               <div>
-                <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                   <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                     Weekly plan
                   </span>
+                  <span className="text-[10px] text-slate-600">
+                    {rollingWeek[0]?.monthDay} — {rollingWeek[6]?.monthDay}
+                  </span>
                 </div>
                 <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-                  {days.map((d, i) => {
-                    const block = mockWeeklyPlan[i];
+                  {rollingWeek.map((day, i) => {
+                    const block = day.block;
+                    const selected = selectedDayIndex === i;
                     return (
-                      <div key={d} className="text-center">
-                        <span className="text-[9px] font-medium text-slate-600">{d}</span>
-                        <div className="mt-1.5 min-h-[68px] rounded-lg border border-white/[0.07] bg-white/[0.025] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:min-h-[80px]">
+                      <div key={day.date.toISOString()} className="text-center">
+                        <div
+                          className={cn(
+                            "flex flex-col items-center gap-0.5 rounded-lg px-1 py-1",
+                            day.isToday &&
+                              "bg-violet-500/18 ring-1 ring-violet-400/35 shadow-[0_0_18px_-8px_rgba(139,92,246,0.45)]"
+                          )}
+                          aria-current={day.isToday ? "date" : undefined}
+                        >
+                          <span
+                            className={cn(
+                              "text-[9px] font-medium",
+                              day.isToday ? "text-violet-100" : "text-slate-500"
+                            )}
+                          >
+                            {day.weekdayShort}
+                          </span>
+                          <span
+                            className={cn(
+                              "text-[8px]",
+                              day.isToday ? "text-violet-200/95" : "text-slate-600"
+                            )}
+                          >
+                            {day.monthDay}
+                          </span>
+                        </div>
+                        <motion.button
+                          type="button"
+                          aria-pressed={selected}
+                          aria-label={
+                            block
+                              ? `${day.monthDay}: ${block.text}`
+                              : `${day.monthDay}: No plan`
+                          }
+                          onClick={() => {
+                            setSelectedDayIndex(i);
+                            setPlanModalDayIndex(i);
+                            setPlanModalOpen(true);
+                          }}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.99 }}
+                          transition={{ type: "spring", stiffness: 420, damping: 28 }}
+                          className={cn(
+                            "mt-1.5 w-full min-h-[80px] rounded-lg border p-1.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-[border-color,box-shadow,background-color] sm:min-h-[92px]",
+                            selected
+                              ? "border-violet-400/45 bg-violet-500/[0.12] shadow-[0_0_24px_-8px_rgba(139,92,246,0.45)] ring-1 ring-violet-400/30"
+                              : "border-white/[0.07] bg-white/[0.025] hover:border-white/[0.14] hover:bg-white/[0.04]"
+                          )}
+                        >
                           {block && (
                             <motion.div
-                              initial={{ opacity: 0, scale: 0.96 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ delay: 0.2 + i * 0.055, duration: 0.35 }}
-                              className={weeklyBlockStyles[block.variant]}
+                              initial={{ opacity: 0, y: 4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.12 + i * 0.045, duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+                              className={cn(
+                                "flex h-full min-h-[72px] flex-col gap-1 rounded-md p-2 sm:min-h-[80px]",
+                                weeklyThumbShell[block.variant]
+                              )}
                             >
-                              {block.text}
+                              {(() => {
+                                const ThumbIcon = weeklyThumbIcon[block.variant];
+                                return (
+                                  <ThumbIcon
+                                    className={cn(
+                                      "h-4 w-4 shrink-0",
+                                      block.variant === "violet" && "text-violet-200",
+                                      block.variant === "blue" && "text-sky-200",
+                                      block.variant === "neutral" && "text-slate-300"
+                                    )}
+                                    strokeWidth={2}
+                                    aria-hidden
+                                  />
+                                );
+                              })()}
+                              <p className="line-clamp-2 text-[11px] font-semibold leading-snug tracking-tight text-slate-50 sm:text-[12px]">
+                                {block.headline}
+                              </p>
+                              {block.subline ? (
+                                <p className="mt-auto line-clamp-2 text-[10px] font-medium leading-snug text-slate-400">
+                                  {block.subline}
+                                </p>
+                              ) : null}
                             </motion.div>
                           )}
-                        </div>
+                        </motion.button>
                       </div>
                     );
                   })}
@@ -309,6 +485,15 @@ export function DashboardClient() {
           </div>
         </motion.div>
       </div>
+
+      <DayPlanDetailModal
+        key={`day-plan-${planModalDay.date.getTime()}-${planModalOpen}`}
+        open={planModalOpen}
+        onClose={() => setPlanModalOpen(false)}
+        date={planModalDay.date}
+        summaryLine={planModalDay.block?.text ?? null}
+        tasks={planModalTasks}
+      />
 
       <EndOfDayReviewModal
         open={eodOpen}

@@ -1,0 +1,287 @@
+"use client";
+
+import { AnimatePresence, motion } from "framer-motion";
+import { Eye, EyeOff, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { GlassCard } from "@/components/landing/GlassCard";
+import { cn } from "@/lib/cn";
+
+type Mode = "signin" | "signup";
+
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden>
+      <path
+        fill="#EA4335"
+        d="M12 10.2v3.9h5.5c-.24 1.26-.96 2.32-2.04 3.04l3.3 2.56C20.36 17.37 22 14.74 22 12c0-.68-.06-1.34-.18-1.98H12z"
+      />
+      <path
+        fill="#34A853"
+        d="M5.26 14.09l-.66.5-2.34 1.82C3.7 18.98 7.62 22 12 22c3 0 5.52-1 7.36-2.7l-3.3-2.55c-.92.62-2.1.98-3.06.98-2.35 0-4.35-1.59-5.06-3.74z"
+      />
+      <path
+        fill="#4A90E2"
+        d="M5.26 9.91C4.48 11.35 4 12.92 4 14.55c0 1.63.48 3.2 1.26 4.64L8.6 16.1c-.3-.9-.48-1.86-.48-2.85 0-1.04.2-2.04.56-2.94L5.26 9.91z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M12 5.38c1.62 0 3.06.56 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.62 1 3.7 4.02 2.26 8.09l3.34 2.59C6.65 6.96 9.12 5.38 12 5.38z"
+      />
+    </svg>
+  );
+}
+
+function AppleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8-1.287-1.82-2.323-4.63-2.323-7.28 0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.09 3.822-1.09.616 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.955 4.45z" />
+    </svg>
+  );
+}
+
+const fieldClass = cn(
+  "w-full rounded-xl border border-white/[0.09] bg-white/[0.04] px-4 py-3 text-sm text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+  "placeholder:text-slate-500",
+  "outline-none transition-[border-color,box-shadow] duration-200",
+  "focus:border-violet-500/45 focus:shadow-[0_0_0_3px_rgba(139,92,246,0.18),inset_0_1px_0_rgba(255,255,255,0.06)]"
+);
+
+const primaryBtnClass = cn(
+  "relative w-full overflow-hidden rounded-full py-3 text-sm font-semibold text-white",
+  "bg-gradient-to-r from-violet-600 via-violet-500 to-indigo-600",
+  "shadow-[0_0_28px_-4px_rgba(139,92,246,0.65),0_8px_24px_-12px_rgba(99,102,241,0.4),inset_0_1px_0_rgba(255,255,255,0.14)]",
+  "ring-1 ring-white/15 transition-[filter,box-shadow,transform] duration-200",
+  "hover:brightness-[1.06] hover:shadow-[0_0_36px_-4px_rgba(139,92,246,0.8)] active:scale-[0.99]"
+);
+
+const socialBtnClass = cn(
+  "flex w-full items-center justify-center gap-2.5 rounded-full border border-white/[0.1] bg-white/[0.04] py-3 text-sm font-medium text-slate-100",
+  "shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm",
+  "transition-[border-color,background-color,transform,box-shadow] duration-200",
+  "hover:border-white/[0.16] hover:bg-white/[0.07] hover:shadow-[0_8px_28px_-16px_rgba(99,102,241,0.25)]"
+);
+
+export function AuthClient() {
+  const [mode, setMode] = useState<Mode>("signin");
+  const [showPassword, setShowPassword] = useState(false);
+
+  return (
+    <motion.main
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      className="relative flex min-h-full flex-1 flex-col pt-16"
+    >
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+        <motion.div
+          className="absolute left-[12%] top-[28%] h-40 w-40 rounded-full bg-violet-500/10 blur-3xl"
+          animate={{ opacity: [0.35, 0.55, 0.35], scale: [1, 1.08, 1] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute right-[10%] top-[42%] h-52 w-52 rounded-full bg-indigo-500/10 blur-3xl"
+          animate={{ opacity: [0.3, 0.5, 0.3], scale: [1.05, 1, 1.05] }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute bottom-[18%] left-[40%] h-32 w-64 rounded-full bg-blue-500/8 blur-3xl"
+          animate={{ opacity: [0.25, 0.45, 0.25] }}
+          transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
+        />
+      </div>
+
+      <div className="relative z-[1] mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center gap-10 px-4 py-12 sm:px-6 lg:flex-row lg:items-center lg:gap-16 lg:px-8 lg:py-16">
+        <motion.p
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+          className="max-w-sm text-center text-sm leading-relaxed text-slate-500 lg:max-w-xs lg:text-left lg:text-[0.9375rem]"
+        >
+          Plan smarter. Recover faster. Stay ahead.
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 22 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
+          className="mx-auto w-full max-w-[420px] lg:mx-0 lg:shrink-0"
+        >
+          <GlassCard
+            glow="violet"
+            className="relative overflow-hidden p-6 shadow-[0_32px_80px_-32px_rgba(0,0,0,0.75),inset_0_1px_0_rgba(255,255,255,0.06)] sm:p-8"
+          >
+            <div
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(139,92,246,0.12),transparent_55%)]"
+              aria-hidden
+            />
+            <div className="relative">
+              <div className="mb-8 flex flex-col items-center text-center">
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/35 to-indigo-600/28 ring-1 ring-white/12 shadow-[0_0_28px_-6px_rgba(139,92,246,0.55)]">
+                  <Sparkles className="h-5 w-5 text-violet-200" strokeWidth={1.75} />
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  LifeOS
+                </span>
+                <h1 className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-[1.65rem]">
+                  Welcome to LifeOS
+                </h1>
+                <p className="mt-2 max-w-[280px] text-sm text-slate-400">
+                  Sign in to continue or create your account
+                </p>
+              </div>
+
+              <form
+                className="space-y-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                }}
+              >
+                <div>
+                  <label htmlFor="auth-email" className="mb-1.5 block text-xs font-medium text-slate-400">
+                    Email
+                  </label>
+                  <input
+                    id="auth-email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@university.edu"
+                    className={fieldClass}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="auth-password" className="mb-1.5 block text-xs font-medium text-slate-400">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="auth-password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                      placeholder="••••••••"
+                      className={cn(fieldClass, "pr-12")}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-slate-300"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <AnimatePresence initial={false}>
+                  {mode === "signin" && (
+                    <motion.div
+                      key="signin-extra"
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                        <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-400">
+                          <input
+                            type="checkbox"
+                            name="remember"
+                            className="h-3.5 w-3.5 rounded border border-white/20 bg-white/[0.05] text-violet-500 focus:ring-violet-500/40"
+                          />
+                          Remember me
+                        </label>
+                        <button
+                          type="button"
+                          className="text-xs font-medium text-violet-300/95 transition-colors hover:text-violet-200"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.995 }} transition={{ type: "spring", stiffness: 400, damping: 24 }}>
+                  <button type="submit" className={primaryBtnClass}>
+                    <span className="relative z-10">Continue</span>
+                    <span
+                      className="pointer-events-none absolute inset-0 bg-gradient-to-t from-transparent via-white/[0.05] to-white/[0.1]"
+                      aria-hidden
+                    />
+                  </button>
+                </motion.div>
+              </form>
+
+              <div className="relative my-7">
+                <div className="absolute inset-0 flex items-center" aria-hidden>
+                  <div className="w-full border-t border-white/[0.08]" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-[rgba(12,14,28,0.92)] px-3 text-slate-500 backdrop-blur-sm">or</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.995 }} transition={{ type: "spring", stiffness: 400, damping: 24 }}>
+                  <button type="button" className={socialBtnClass}>
+                    <GoogleIcon className="h-[18px] w-[18px] shrink-0" />
+                    Continue with Google
+                  </button>
+                </motion.div>
+                <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.995 }} transition={{ type: "spring", stiffness: 400, damping: 24 }}>
+                  <button type="button" className={socialBtnClass}>
+                    <AppleIcon className="h-[18px] w-[18px] shrink-0 text-white" />
+                    Continue with Apple
+                  </button>
+                </motion.div>
+              </div>
+
+              <div className="mt-8 text-center">
+                <AnimatePresence mode="wait" initial={false}>
+                  {mode === "signin" ? (
+                    <motion.p
+                      key="to-signup"
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                      className="text-sm text-slate-500"
+                    >
+                      New to LifeOS?{" "}
+                      <button
+                        type="button"
+                        onClick={() => setMode("signup")}
+                        className="font-semibold text-violet-300 transition-colors hover:text-violet-200"
+                      >
+                        Create account
+                      </button>
+                    </motion.p>
+                  ) : (
+                    <motion.p
+                      key="to-signin"
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                      className="text-sm text-slate-500"
+                    >
+                      Already have an account?{" "}
+                      <button
+                        type="button"
+                        onClick={() => setMode("signin")}
+                        className="font-semibold text-violet-300 transition-colors hover:text-violet-200"
+                      >
+                        Sign in
+                      </button>
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </GlassCard>
+        </motion.div>
+      </div>
+    </motion.main>
+  );
+}

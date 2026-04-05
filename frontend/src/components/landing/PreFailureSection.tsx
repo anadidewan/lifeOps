@@ -8,7 +8,7 @@ import { SectionHeading } from "./SectionHeading";
 
 export function PreFailureSection() {
   return (
-    <AnimatedSection className="relative py-24 sm:py-28">
+    <AnimatedSection id="pre-failure" className="relative py-24 sm:py-28">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_50%,rgba(139,92,246,0.12),transparent)]" />
       <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <SectionHeading

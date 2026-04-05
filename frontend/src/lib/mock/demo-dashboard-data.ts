@@ -112,11 +112,6 @@ export const mockProgress = {
   barHeights: [40, 65, 45, 80, 55, 90, 72] as const,
 } as const;
 
-export const mockInsights = {
-  line1: "Best focus: 8-11 PM",
-  line2: "Drop after 40 min",
-} as const;
-
 export const mockFutureAssignments: ExtraCompletedAssignment[] = [
   { id: "asg-econ-quiz-4", title: "Econ Quiz 4" },
   { id: "asg-calc-hw-7", title: "Calc Homework 7" },
@@ -136,13 +131,6 @@ export const mockFutureAssignments: ExtraCompletedAssignment[] = [
   { id: "asg-capstone-outline", title: "Capstone Outline Draft" },
 ];
 
-export const mockQuickActions = [
-  "Fix My Week",
-  "Rebalance",
-  "Predict Risk",
-  "Convert Transcript",
-] as const;
-
 export const mockDashboardData = {
   DEMO_MODE,
   header: mockHeader,
@@ -153,9 +141,7 @@ export const mockDashboardData = {
   aiSuggestions: mockAiSuggestions,
   emailDraft: mockEmailDraft,
   progress: mockProgress,
-  insights: mockInsights,
   futureAssignments: mockFutureAssignments,
-  quickActions: mockQuickActions,
 } as const;
 
 export function getDemoGmailComposeHref(): string {

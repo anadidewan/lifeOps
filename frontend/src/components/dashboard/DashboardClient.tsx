@@ -5,9 +5,6 @@ import {
   AlertTriangle,
   Angry,
   Annoyed,
-  BookOpen,
-  CalendarDays,
-  Database,
   ExternalLink,
   Flame,
   Frown,
@@ -16,12 +13,17 @@ import {
   Sparkles,
   TrendingUp,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { DayPlanDetailModal } from "@/components/dashboard/DayPlanDetailModal";
+import { PlanTaskRow } from "@/components/dashboard/PlanTaskRow";
 import { EndOfDayReviewModal } from "@/components/dashboard/EndOfDayReviewModal";
 import { GlassCard } from "@/components/landing/GlassCard";
-import { getDetailedPlanTasksForWeekday } from "@/lib/dashboard/day-plan-detail";
+import {
+  getDetailedPlanTasksForWeekday,
+  getPlanDayTaskStats,
+  sortTasksByTime,
+  type DetailedPlanTask,
+} from "@/lib/dashboard/day-plan-detail";
 import { getTodaysPlanTasks } from "@/lib/dashboard/todays-plan-tasks";
 import {
   getDemoDueSummaryLine,
@@ -30,9 +32,7 @@ import {
   mockEmailDraft,
   mockFailureAlert,
   mockHeader,
-  mockInsights,
   mockProgress,
-  mockQuickActions,
   mockWeeklyPlan,
   type WeeklyBlockVariant,
 } from "@/lib/mock/demo-dashboard-data";
@@ -54,12 +54,6 @@ function addDays(base: Date, days: number): Date {
   x.setDate(x.getDate() + days);
   return x;
 }
-
-const weeklyThumbIcon: Record<WeeklyBlockVariant, LucideIcon> = {
-  violet: BookOpen,
-  blue: Database,
-  neutral: CalendarDays,
-};
 
 const weeklyThumbShell: Record<WeeklyBlockVariant, string> = {
   violet:
@@ -111,10 +105,30 @@ export function DashboardClient() {
   }, []);
 
   const planModalDay = rollingWeek[planModalDayIndex] ?? rollingWeek[0];
-  const planModalTasks = useMemo(
-    () => getDetailedPlanTasksForWeekday(mondayFirstIndex(planModalDay.date)),
-    [planModalDay.date]
-  );
+
+  const todayRolling = rollingWeek[0];
+  const [todayPlanTasks, setTodayPlanTasks] = useState<DetailedPlanTask[]>(() => {
+    const today = startOfLocalDay(new Date());
+    return sortTasksByTime([...getDetailedPlanTasksForWeekday(mondayFirstIndex(today))]);
+  });
+
+  const planModalTasks = useMemo(() => {
+    if (planModalDayIndex === 0) {
+      return todayPlanTasks;
+    }
+    return getDetailedPlanTasksForWeekday(mondayFirstIndex(planModalDay.date));
+  }, [planModalDayIndex, planModalDay.date, todayPlanTasks]);
+
+  const todayTitle = todayRolling
+    ? todayRolling.date.toLocaleDateString(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "";
+
+  const otherRollingDays = rollingWeek.slice(1);
 
   return (
     <motion.main
@@ -239,99 +253,111 @@ export function DashboardClient() {
                     {rollingWeek[0]?.monthDay} — {rollingWeek[6]?.monthDay}
                   </span>
                 </div>
-                <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-                  {rollingWeek.map((day, i) => {
-                    const block = day.block;
-                    const selected = selectedDayIndex === i;
-                    return (
-                      <div key={day.date.toISOString()} className="text-center">
-                        <div
-                          className={cn(
-                            "flex flex-col items-center gap-0.5 rounded-lg px-1 py-1",
-                            day.isToday &&
-                              "bg-violet-500/18 ring-1 ring-violet-400/35 shadow-[0_0_18px_-8px_rgba(139,92,246,0.45)]"
-                          )}
-                          aria-current={day.isToday ? "date" : undefined}
-                        >
-                          <span
+                <div className="space-y-4">
+                  <div
+                    className={cn(
+                      "overflow-hidden rounded-xl border border-white/[0.08]",
+                      "bg-[linear-gradient(165deg,rgba(18,22,38,0.96)_0%,rgba(8,10,20,0.92)_50%,rgba(6,8,18,0.96)_100%)]",
+                      "shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ring-1 ring-inset ring-violet-400/20"
+                    )}
+                  >
+                    <div className="border-b border-white/[0.06] px-4 py-3 sm:px-5 sm:py-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        Day plan · Today
+                      </p>
+                      <h2 className="mt-1 text-base font-semibold tracking-tight text-white sm:text-lg">
+                        {todayTitle}
+                      </h2>
+                      {todayRolling?.block ? (
+                        <p className="mt-1 text-xs text-slate-400">{todayRolling.block.text}</p>
+                      ) : null}
+                    </div>
+                    <div className="max-h-[min(52vh,420px)] overflow-y-auto px-4 py-3 sm:px-5 sm:py-4">
+                      {todayPlanTasks.length === 0 ? (
+                        <p className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-6 text-center text-sm text-slate-500">
+                          No tasks left for this day.
+                        </p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {sortTasksByTime(todayPlanTasks).map((task) => (
+                            <li key={task.id}>
+                              <PlanTaskRow
+                                task={task}
+                                onRemove={() =>
+                                  setTodayPlanTasks((prev) =>
+                                    prev.filter((t) => t.id !== task.id)
+                                  )
+                                }
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid min-w-0 grid-cols-6 gap-1.5 sm:gap-2">
+                    {otherRollingDays.map((day, j) => {
+                      const i = j + 1;
+                      const block = day.block;
+                      const selected = selectedDayIndex === i;
+                      const stats = getPlanDayTaskStats(mondayFirstIndex(day.date));
+                      return (
+                        <div key={day.date.toISOString()} className="min-w-0 text-center">
+                          <div className="flex flex-col items-center gap-0.5 rounded-lg px-0.5 py-1 sm:px-1">
+                            <span className="text-[9px] font-medium text-slate-500">
+                              {day.weekdayShort}
+                            </span>
+                            <span className="text-[8px] text-slate-600">{day.monthDay}</span>
+                          </div>
+                          <motion.button
+                            type="button"
+                            aria-pressed={selected}
+                            aria-label={`${day.monthDay}: ${stats.total} tasks, ${stats.dueThatDay} with deadline`}
+                            onClick={() => {
+                              setSelectedDayIndex(i);
+                              setPlanModalDayIndex(i);
+                              setPlanModalOpen(true);
+                            }}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.99 }}
+                            transition={{ type: "spring", stiffness: 420, damping: 28 }}
                             className={cn(
-                              "text-[9px] font-medium",
-                              day.isToday ? "text-violet-100" : "text-slate-500"
+                              "mt-1.5 w-full min-h-[80px] rounded-lg border p-1.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-[border-color,box-shadow,background-color] sm:min-h-[92px]",
+                              selected
+                                ? "border-violet-400/45 bg-violet-500/[0.12] shadow-[0_0_24px_-8px_rgba(139,92,246,0.45)] ring-1 ring-violet-400/30"
+                                : "border-white/[0.07] bg-white/[0.025] hover:border-white/[0.14] hover:bg-white/[0.04]"
                             )}
                           >
-                            {day.weekdayShort}
-                          </span>
-                          <span
-                            className={cn(
-                              "text-[8px]",
-                              day.isToday ? "text-violet-200/95" : "text-slate-600"
-                            )}
-                          >
-                            {day.monthDay}
-                          </span>
-                        </div>
-                        <motion.button
-                          type="button"
-                          aria-pressed={selected}
-                          aria-label={
-                            block
-                              ? `${day.monthDay}: ${block.text}`
-                              : `${day.monthDay}: No plan`
-                          }
-                          onClick={() => {
-                            setSelectedDayIndex(i);
-                            setPlanModalDayIndex(i);
-                            setPlanModalOpen(true);
-                          }}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.99 }}
-                          transition={{ type: "spring", stiffness: 420, damping: 28 }}
-                          className={cn(
-                            "mt-1.5 w-full min-h-[80px] rounded-lg border p-1.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-[border-color,box-shadow,background-color] sm:min-h-[92px]",
-                            selected
-                              ? "border-violet-400/45 bg-violet-500/[0.12] shadow-[0_0_24px_-8px_rgba(139,92,246,0.45)] ring-1 ring-violet-400/30"
-                              : "border-white/[0.07] bg-white/[0.025] hover:border-white/[0.14] hover:bg-white/[0.04]"
-                          )}
-                        >
-                          {block && (
                             <motion.div
                               initial={{ opacity: 0, y: 4 }}
                               animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: 0.12 + i * 0.045, duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+                              transition={{
+                                delay: 0.05 + j * 0.04,
+                                duration: 0.38,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
                               className={cn(
-                                "flex h-full min-h-[72px] flex-col gap-1 rounded-md p-2 sm:min-h-[80px]",
-                                weeklyThumbShell[block.variant]
+                                "flex h-full min-h-[72px] flex-col items-stretch justify-center gap-0.5 rounded-md p-1.5 text-center sm:min-h-[80px] sm:p-2",
+                                block
+                                  ? weeklyThumbShell[block.variant]
+                                  : "border border-white/[0.05] bg-white/[0.02]"
                               )}
                             >
-                              {(() => {
-                                const ThumbIcon = weeklyThumbIcon[block.variant];
-                                return (
-                                  <ThumbIcon
-                                    className={cn(
-                                      "h-4 w-4 shrink-0",
-                                      block.variant === "violet" && "text-violet-200",
-                                      block.variant === "blue" && "text-sky-200",
-                                      block.variant === "neutral" && "text-slate-300"
-                                    )}
-                                    strokeWidth={2}
-                                    aria-hidden
-                                  />
-                                );
-                              })()}
-                              <p className="line-clamp-2 text-[11px] font-semibold leading-snug tracking-tight text-slate-50 sm:text-[12px]">
-                                {block.headline}
+                              <p className="text-[10px] font-bold tabular-nums leading-tight text-slate-50 sm:text-[11px]">
+                                {stats.total}{" "}
+                                <span className="font-semibold text-slate-400">tasks</span>
                               </p>
-                              {block.subline ? (
-                                <p className="mt-auto line-clamp-2 text-[10px] font-medium leading-snug text-slate-400">
-                                  {block.subline}
-                                </p>
-                              ) : null}
+                              <p className="text-[9px] font-semibold tabular-nums text-amber-200/95 sm:text-[10px]">
+                                {stats.dueThatDay}{" "}
+                                <span className="font-medium text-amber-200/70">due</span>
+                              </p>
                             </motion.div>
-                          )}
-                        </motion.button>
-                      </div>
-                    );
-                  })}
+                          </motion.button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -452,35 +478,6 @@ export function DashboardClient() {
                   </div>
                 </motion.div>
               </div>
-
-              <motion.div whileHover={cardHover}>
-                <GlassCard glow="blue" className="p-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                    Insight
-                  </p>
-                  <p className="mt-2 text-sm text-slate-200">{mockInsights.line1}</p>
-                  <p className="mt-1 text-sm text-slate-400">{mockInsights.line2}</p>
-                </GlassCard>
-              </motion.div>
-
-              <div className="flex flex-wrap gap-2">
-                {mockQuickActions.map((label) => (
-                    <motion.button
-                      key={label}
-                      type="button"
-                      whileHover={{ y: -1 }}
-                      whileTap={{ scale: 0.99 }}
-                      transition={{ type: "spring", stiffness: 400, damping: 26 }}
-                      className={cn(
-                        "rounded-full border border-white/[0.1] bg-white/[0.04] px-3.5 py-2 text-[11px] font-medium text-slate-200",
-                        "shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-sm",
-                        "transition-[border-color,background-color,box-shadow] hover:border-white/[0.16] hover:bg-white/[0.07]"
-                      )}
-                    >
-                      {label}
-                    </motion.button>
-                ))}
-              </div>
             </div>
           </div>
         </motion.div>
@@ -493,6 +490,11 @@ export function DashboardClient() {
         date={planModalDay.date}
         summaryLine={planModalDay.block?.text ?? null}
         tasks={planModalTasks}
+        onTasksChange={
+          planModalDayIndex === 0
+            ? (next) => setTodayPlanTasks(sortTasksByTime(next))
+            : undefined
+        }
       />
 
       <EndOfDayReviewModal

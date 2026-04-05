@@ -2,8 +2,19 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { Eye, EyeOff, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { GlassCard } from "@/components/landing/GlassCard";
+import {
+  formatAuthError,
+  sendPasswordReset,
+  signInWithApple,
+  signInWithEmail,
+  signInWithGoogle,
+  signUpWithEmail,
+  verifyTokenWithBackend,
+} from "@/lib/firebase/auth-flow";
+import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { cn } from "@/lib/cn";
 
 type Mode = "signin" | "signup";
@@ -33,7 +44,12 @@ function GoogleIcon({ className }: { className?: string }) {
 
 function AppleIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
       <path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8-1.287-1.82-2.323-4.63-2.323-7.28 0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.09 3.822-1.09.616 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.955 4.45z" />
     </svg>
   );
@@ -43,7 +59,7 @@ const fieldClass = cn(
   "w-full rounded-xl border border-white/[0.09] bg-white/[0.04] px-4 py-3 text-sm text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
   "placeholder:text-slate-500",
   "outline-none transition-[border-color,box-shadow] duration-200",
-  "focus:border-violet-500/45 focus:shadow-[0_0_0_3px_rgba(139,92,246,0.18),inset_0_1px_0_rgba(255,255,255,0.06)]"
+  "focus:border-violet-500/45 focus:shadow-[0_0_0_3px_rgba(139,92,246,0.18),inset_0_1px_0_rgba(255,255,255,0.06)]",
 );
 
 const primaryBtnClass = cn(
@@ -51,19 +67,31 @@ const primaryBtnClass = cn(
   "bg-gradient-to-r from-violet-600 via-violet-500 to-indigo-600",
   "shadow-[0_0_28px_-4px_rgba(139,92,246,0.65),0_8px_24px_-12px_rgba(99,102,241,0.4),inset_0_1px_0_rgba(255,255,255,0.14)]",
   "ring-1 ring-white/15 transition-[filter,box-shadow,transform] duration-200",
-  "hover:brightness-[1.06] hover:shadow-[0_0_36px_-4px_rgba(139,92,246,0.8)] active:scale-[0.99]"
+  "hover:brightness-[1.06] hover:shadow-[0_0_36px_-4px_rgba(139,92,246,0.8)] active:scale-[0.99]",
 );
 
 const socialBtnClass = cn(
   "flex w-full items-center justify-center gap-2.5 rounded-full border border-white/[0.1] bg-white/[0.04] py-3 text-sm font-medium text-slate-100",
   "shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm",
   "transition-[border-color,background-color,transform,box-shadow] duration-200",
-  "hover:border-white/[0.16] hover:bg-white/[0.07] hover:shadow-[0_8px_28px_-16px_rgba(99,102,241,0.25)]"
+  "hover:border-white/[0.16] hover:bg-white/[0.07] hover:shadow-[0_8px_28px_-16px_rgba(99,102,241,0.25)]",
 );
 
 export function AuthClient() {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("signin");
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
+
+  async function completeSignIn(credential: { user: { getIdToken: () => Promise<string> } }) {
+    const idToken = await credential.user.getIdToken();
+    await verifyTokenWithBackend(idToken);
+    router.push("/dashboard");
+  }
 
   return (
     <motion.main
@@ -72,7 +100,10 @@ export function AuthClient() {
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
       className="relative flex min-h-full flex-1 flex-col pt-16"
     >
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      <div
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+        aria-hidden
+      >
         <motion.div
           className="absolute left-[12%] top-[28%] h-40 w-40 rounded-full bg-violet-500/10 blur-3xl"
           animate={{ opacity: [0.35, 0.55, 0.35], scale: [1, 1.08, 1] }}
@@ -115,9 +146,30 @@ export function AuthClient() {
               aria-hidden
             />
             <div className="relative">
+              {!isFirebaseConfigured() && (
+                <p className="mb-4 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-100/90">
+                  Firebase is not configured. Copy{" "}
+                  <code className="rounded bg-white/10 px-1 py-0.5 text-[10px]">env.example</code> to{" "}
+                  <code className="rounded bg-white/10 px-1 py-0.5 text-[10px]">.env.local</code> and add
+                  your web app keys (same project as the backend).
+                </p>
+              )}
+              {error && (
+                <p className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-center text-xs text-red-200/90">
+                  {error}
+                </p>
+              )}
+              {resetMessage && (
+                <p className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-center text-xs text-emerald-100/90">
+                  {resetMessage}
+                </p>
+              )}
               <div className="mb-8 flex flex-col items-center text-center">
                 <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/35 to-indigo-600/28 ring-1 ring-white/12 shadow-[0_0_28px_-6px_rgba(139,92,246,0.55)]">
-                  <Sparkles className="h-5 w-5 text-violet-200" strokeWidth={1.75} />
+                  <Sparkles
+                    className="h-5 w-5 text-violet-200"
+                    strokeWidth={1.75}
+                  />
                 </div>
                 <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
                   LifeOS
@@ -132,12 +184,37 @@ export function AuthClient() {
 
               <form
                 className="space-y-4"
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
+                  setError(null);
+                  setResetMessage(null);
+                  if (!isFirebaseConfigured()) {
+                    setError("Firebase is not configured. Check .env.local.");
+                    return;
+                  }
+                  if (!email.trim() || !password) {
+                    setError("Enter your email and password.");
+                    return;
+                  }
+                  setLoading(true);
+                  try {
+                    const cred =
+                      mode === "signin"
+                        ? await signInWithEmail(email, password)
+                        : await signUpWithEmail(email, password);
+                    await completeSignIn(cred);
+                  } catch (err) {
+                    setError(formatAuthError(err));
+                  } finally {
+                    setLoading(false);
+                  }
                 }}
               >
                 <div>
-                  <label htmlFor="auth-email" className="mb-1.5 block text-xs font-medium text-slate-400">
+                  <label
+                    htmlFor="auth-email"
+                    className="mb-1.5 block text-xs font-medium text-slate-400"
+                  >
                     Email
                   </label>
                   <input
@@ -147,10 +224,16 @@ export function AuthClient() {
                     autoComplete="email"
                     placeholder="you@university.edu"
                     className={fieldClass}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
                   />
                 </div>
                 <div>
-                  <label htmlFor="auth-password" className="mb-1.5 block text-xs font-medium text-slate-400">
+                  <label
+                    htmlFor="auth-password"
+                    className="mb-1.5 block text-xs font-medium text-slate-400"
+                  >
                     Password
                   </label>
                   <div className="relative">
@@ -158,17 +241,28 @@ export function AuthClient() {
                       id="auth-password"
                       name="password"
                       type={showPassword ? "text" : "password"}
-                      autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                      autoComplete={
+                        mode === "signin" ? "current-password" : "new-password"
+                      }
                       placeholder="••••••••"
                       className={cn(fieldClass, "pr-12")}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={loading}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-slate-300"
-                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-label={
+                        showPassword ? "Hide password" : "Show password"
+                      }
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -194,6 +288,28 @@ export function AuthClient() {
                         <button
                           type="button"
                           className="text-xs font-medium text-violet-300/95 transition-colors hover:text-violet-200"
+                          disabled={loading}
+                          onClick={async () => {
+                            setError(null);
+                            setResetMessage(null);
+                            if (!isFirebaseConfigured()) {
+                              setError("Firebase is not configured. Check .env.local.");
+                              return;
+                            }
+                            if (!email.trim()) {
+                              setError("Enter your email address first.");
+                              return;
+                            }
+                            setLoading(true);
+                            try {
+                              await sendPasswordReset(email);
+                              setResetMessage("Check your inbox for a reset link.");
+                            } catch (err) {
+                              setError(formatAuthError(err));
+                            } finally {
+                              setLoading(false);
+                            }
+                          }}
                         >
                           Forgot password?
                         </button>
@@ -202,9 +318,19 @@ export function AuthClient() {
                   )}
                 </AnimatePresence>
 
-                <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.995 }} transition={{ type: "spring", stiffness: 400, damping: 24 }}>
-                  <button type="submit" className={primaryBtnClass}>
-                    <span className="relative z-10">Continue</span>
+                <motion.div
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.995 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 24 }}
+                >
+                  <button type="submit" className={primaryBtnClass} disabled={loading}>
+                    <span className="relative z-10">
+                      {loading
+                        ? mode === "signin"
+                          ? "Signing in…"
+                          : "Creating account…"
+                        : "Continue"}
+                    </span>
                     <span
                       className="pointer-events-none absolute inset-0 bg-gradient-to-t from-transparent via-white/[0.05] to-white/[0.1]"
                       aria-hidden
@@ -218,19 +344,71 @@ export function AuthClient() {
                   <div className="w-full border-t border-white/[0.08]" />
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="bg-[rgba(12,14,28,0.92)] px-3 text-slate-500 backdrop-blur-sm">or</span>
+                  <span className="bg-[rgba(12,14,28,0.92)] px-3 text-slate-500 backdrop-blur-sm">
+                    or
+                  </span>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.995 }} transition={{ type: "spring", stiffness: 400, damping: 24 }}>
-                  <button type="button" className={socialBtnClass}>
+                <motion.div
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.995 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 24 }}
+                >
+                  <button
+                    type="button"
+                    className={socialBtnClass}
+                    disabled={loading}
+                    onClick={async () => {
+                      setError(null);
+                      setResetMessage(null);
+                      if (!isFirebaseConfigured()) {
+                        setError("Firebase is not configured. Check .env.local.");
+                        return;
+                      }
+                      setLoading(true);
+                      try {
+                        const cred = await signInWithGoogle();
+                        await completeSignIn(cred);
+                      } catch (err) {
+                        setError(formatAuthError(err));
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
                     <GoogleIcon className="h-[18px] w-[18px] shrink-0" />
                     Continue with Google
                   </button>
                 </motion.div>
-                <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.995 }} transition={{ type: "spring", stiffness: 400, damping: 24 }}>
-                  <button type="button" className={socialBtnClass}>
+                <motion.div
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.995 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 24 }}
+                >
+                  <button
+                    type="button"
+                    className={socialBtnClass}
+                    disabled={loading}
+                    onClick={async () => {
+                      setError(null);
+                      setResetMessage(null);
+                      if (!isFirebaseConfigured()) {
+                        setError("Firebase is not configured. Check .env.local.");
+                        return;
+                      }
+                      setLoading(true);
+                      try {
+                        const cred = await signInWithApple();
+                        await completeSignIn(cred);
+                      } catch (err) {
+                        setError(formatAuthError(err));
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
                     <AppleIcon className="h-[18px] w-[18px] shrink-0 text-white" />
                     Continue with Apple
                   </button>
@@ -251,7 +429,11 @@ export function AuthClient() {
                       New to LifeOS?{" "}
                       <button
                         type="button"
-                        onClick={() => setMode("signup")}
+                        onClick={() => {
+                          setMode("signup");
+                          setError(null);
+                          setResetMessage(null);
+                        }}
                         className="font-semibold text-violet-300 transition-colors hover:text-violet-200"
                       >
                         Create account
@@ -269,7 +451,11 @@ export function AuthClient() {
                       Already have an account?{" "}
                       <button
                         type="button"
-                        onClick={() => setMode("signin")}
+                        onClick={() => {
+                          setMode("signin");
+                          setError(null);
+                          setResetMessage(null);
+                        }}
                         className="font-semibold text-violet-300 transition-colors hover:text-violet-200"
                       >
                         Sign in

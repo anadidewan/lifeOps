@@ -1,13 +1,12 @@
 import {
-  AccountabilityCoach,
-  CloudSection,
-  DashboardPreview,
   Features,
   FinalCTA,
   Footer,
   GlowBackdrop,
   Hero,
   HowItWorks,
+  LandingScrollRestore,
+  LandingSectionFade,
   Navbar,
   PreFailureSection,
   TrustStrip,
@@ -16,18 +15,28 @@ import {
 export default function Home() {
   return (
     <>
+      <LandingScrollRestore />
       <GlowBackdrop />
       <Navbar />
       <main className="relative flex-1">
-        <Hero />
-        <TrustStrip />
-        <Features />
-        <HowItWorks />
-        <PreFailureSection />
-        <DashboardPreview />
-        <AccountabilityCoach />
-        <CloudSection />
-        <FinalCTA />
+        <LandingSectionFade>
+          <Hero />
+        </LandingSectionFade>
+        <LandingSectionFade>
+          <TrustStrip />
+        </LandingSectionFade>
+        <LandingSectionFade>
+          <Features />
+        </LandingSectionFade>
+        <LandingSectionFade>
+          <HowItWorks />
+        </LandingSectionFade>
+        <LandingSectionFade>
+          <PreFailureSection />
+        </LandingSectionFade>
+        <LandingSectionFade>
+          <FinalCTA />
+        </LandingSectionFade>
       </main>
       <Footer />
     </>

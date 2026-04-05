@@ -3,19 +3,28 @@
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  LANDING_SCROLL_STORAGE_KEY,
+  landingNavSections,
+  scrollToLandingSection,
+} from "@/lib/landing-scroll";
 import { cn } from "@/lib/cn";
-
-const links = [
-  { href: "#features", label: "Features" },
-  { href: "#how-it-works", label: "How it works" },
-  { href: "#dashboard", label: "Preview" },
-  { href: "#cloud", label: "Platform" },
-];
 
 export function Navbar({ className }: { className?: string }) {
   const pathname = usePathname();
+  const router = useRouter();
   const onDashboard = pathname === "/dashboard";
+  const onLanding = pathname === "/";
+
+  const goToLandingSection = (sectionId: string) => {
+    if (onLanding) {
+      scrollToLandingSection(sectionId);
+      return;
+    }
+    sessionStorage.setItem(LANDING_SCROLL_STORAGE_KEY, sectionId);
+    router.push("/");
+  };
 
   return (
     <motion.header
@@ -52,16 +61,17 @@ export function Navbar({ className }: { className?: string }) {
         </div>
 
         <nav className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-9 md:flex">
-          {links.map((l) => (
-            <motion.a
-              key={l.href}
-              href={l.href}
-              className="text-[13px] font-medium text-slate-400 transition-colors hover:text-white"
+          {landingNavSections.map(({ id, label }) => (
+            <motion.button
+              key={id}
+              type="button"
+              onClick={() => goToLandingSection(id)}
+              className="cursor-pointer text-[13px] font-medium text-slate-400 transition-colors hover:text-white"
               whileHover={{ y: -1 }}
               transition={{ type: "spring", stiffness: 420, damping: 28 }}
             >
-              {l.label}
-            </motion.a>
+              {label}
+            </motion.button>
           ))}
         </nav>
 

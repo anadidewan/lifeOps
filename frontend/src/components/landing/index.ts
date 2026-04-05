@@ -1,7 +1,4 @@
-export { AccountabilityCoach } from "./AccountabilityCoach";
 export { AnimatedSection } from "./AnimatedSection";
-export { CloudSection } from "./CloudSection";
-export { DashboardPreview } from "./DashboardPreview";
 export { Features } from "./Features";
 export { FinalCTA } from "./FinalCTA";
 export { Footer } from "./Footer";
@@ -9,6 +6,8 @@ export { GlassCard } from "./GlassCard";
 export { GlowBackdrop } from "./GlowBackdrop";
 export { Hero } from "./Hero";
 export { HowItWorks } from "./HowItWorks";
+export { LandingScrollRestore } from "./LandingScrollRestore";
+export { LandingSectionFade } from "./LandingSectionFade";
 export { Navbar } from "./Navbar";
 export { PreFailureSection } from "./PreFailureSection";
 export { SectionHeading } from "./SectionHeading";

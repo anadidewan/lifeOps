@@ -38,8 +38,7 @@ export function HowItWorks() {
           title="Observe → Reason → Act → Learn"
           subtitle="The same loop modern AI systems use, applied to coursework, communication, and time."
         />
-        <div className="relative mt-20">
-          <div className="absolute left-[8%] right-[8%] top-[52%] hidden h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent lg:block" />
+        <div className="mt-20">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {steps.map((step, i) => (
               <motion.div

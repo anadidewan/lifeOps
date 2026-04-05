@@ -1,20 +1,18 @@
 import {
   createUserWithEmailAndPassword,
-  GoogleAuthProvider,
-  OAuthProvider,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
-  signInWithPopup,
   type UserCredential,
 } from "firebase/auth";
 import { getFirebaseAuth } from "./client";
 
-/** Optional: same FastAPI base URL as your backend (e.g. http://127.0.0.1:8000). */
+/**
+ * Registers the Firebase session with the FastAPI backend (POST /auth/verify-token).
+ * Calls the Next.js route `/api/auth/verify-token`, which proxies to `BACKEND_API_URL`
+ * so the browser does not need CORS or a public API URL.
+ */
 export async function verifyTokenWithBackend(idToken: string): Promise<void> {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
-  if (!base) return;
-
-  const res = await fetch(`${base}/auth/verify-token`, {
+  const res = await fetch("/api/auth/verify-token", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token: idToken }),
@@ -23,8 +21,13 @@ export async function verifyTokenWithBackend(idToken: string): Promise<void> {
   if (!res.ok) {
     let detail = "Could not verify session with the server.";
     try {
-      const body = (await res.json()) as { detail?: string };
-      if (typeof body.detail === "string") detail = body.detail;
+      const body = (await res.json()) as { detail?: unknown };
+      if (typeof body.detail === "string") {
+        detail = body.detail;
+      } else if (Array.isArray(body.detail) && body.detail[0] && typeof body.detail[0] === "object") {
+        const first = body.detail[0] as { msg?: string };
+        if (typeof first.msg === "string") detail = first.msg;
+      }
     } catch {
       /* ignore */
     }
@@ -42,19 +45,6 @@ export async function signUpWithEmail(email: string, password: string): Promise<
   return createUserWithEmailAndPassword(auth, email.trim(), password);
 }
 
-export async function signInWithGoogle(): Promise<UserCredential> {
-  const auth = getFirebaseAuth();
-  const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: "select_account" });
-  return signInWithPopup(auth, provider);
-}
-
-export async function signInWithApple(): Promise<UserCredential> {
-  const auth = getFirebaseAuth();
-  const provider = new OAuthProvider("apple.com");
-  return signInWithPopup(auth, provider);
-}
-
 export async function sendPasswordReset(email: string): Promise<void> {
   const auth = getFirebaseAuth();
   await sendPasswordResetEmail(auth, email.trim());
@@ -70,10 +60,8 @@ function firebaseErrorMessage(code: string, fallback: string): string {
     "auth/email-already-in-use": "An account already exists with this email.",
     "auth/weak-password": "Password should be at least 6 characters.",
     "auth/too-many-requests": "Too many attempts. Try again later.",
-    "auth/popup-closed-by-user": "Sign-in was cancelled.",
-    "auth/popup-blocked": "Pop-up was blocked. Allow pop-ups for this site.",
     "auth/account-exists-with-different-credential": "An account already exists with a different sign-in method.",
-    "auth/operation-not-allowed": "This sign-in method is not enabled in Firebase.",
+    "auth/operation-not-allowed": "Email/password sign-in is not enabled in Firebase for this project.",
   };
   return map[code] ?? fallback;
 }

@@ -31,7 +31,7 @@ export function FinalCTA() {
             </p>
             <div className="relative mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
-                href="#"
+                href="/auth"
                 className="inline-flex h-12 min-w-[200px] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 px-8 text-sm font-semibold text-white shadow-[0_0_40px_-6px_rgba(139,92,246,0.65)] ring-1 ring-white/15 transition hover:brightness-110"
               >
                 Start running student life smarter

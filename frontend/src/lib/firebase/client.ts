@@ -2,13 +2,19 @@ import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 
 function readConfig() {
+  const projectId = (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "").trim();
+  const authDomainRaw = (process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? "").trim();
+  const authDomain =
+    authDomainRaw || (projectId ? `${projectId}.firebaseapp.com` : "");
+
   return {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "",
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? "",
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "",
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    apiKey: (process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "").trim(),
+    authDomain,
+    projectId,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim(),
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID?.trim(),
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID?.trim(),
+    measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID?.trim(),
   };
 }
 
@@ -24,7 +30,7 @@ export function getFirebaseApp(): FirebaseApp {
   const c = readConfig();
   if (!c.apiKey || !c.authDomain || !c.projectId) {
     throw new Error(
-      "Firebase is not configured. Add NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, and NEXT_PUBLIC_FIREBASE_PROJECT_ID to .env.local (same project as the backend)."
+      "Firebase Web SDK is not configured. In .env or .env.local, set NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_PROJECT_ID from Firebase Console → Project settings → Your apps → Web app. (Admin SDK keys are not used in the browser.)"
     );
   }
 
@@ -35,6 +41,7 @@ export function getFirebaseApp(): FirebaseApp {
     ...(c.storageBucket ? { storageBucket: c.storageBucket } : {}),
     ...(c.messagingSenderId ? { messagingSenderId: c.messagingSenderId } : {}),
     ...(c.appId ? { appId: c.appId } : {}),
+    ...(c.measurementId ? { measurementId: c.measurementId } : {}),
   });
 }
 

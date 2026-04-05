@@ -6,9 +6,7 @@ import {
   BarChart3,
   Brain,
   CalendarClock,
-  Headphones,
   Mail,
-  ScrollText,
   Sparkles,
 } from "lucide-react";
 import { AnimatedSection } from "./AnimatedSection";
@@ -36,11 +34,6 @@ const features = [
     desc: "Drafts polished emails to professors for extensions or clarifications, before small issues snowball.",
   },
   {
-    icon: ScrollText,
-    title: "Transcript → Action Items",
-    desc: "Turns Zoom and Teams transcripts into tasks, owners, and follow-ups you will not lose.",
-  },
-  {
     icon: Sparkles,
     title: "Behavior-Aware Intelligence",
     desc: "Reads screen-time and app patterns to surface distraction and procrastination, without judgment.",
@@ -55,11 +48,6 @@ const features = [
     title: "Weekly Performance Reports",
     desc: "Productivity insights, completed work, and targeted improvements every week.",
   },
-  {
-    icon: Headphones,
-    title: "AI Accountability Coach",
-    desc: "Supportive nudges, consistency feedback, and Pomodoro-aware rhythm that fits real student life.",
-  },
 ];
 
 export function Features() {
@@ -71,7 +59,7 @@ export function Features() {
           title="Everything your semester needs, wired into one autonomous agent"
           subtitle="Not another checklist. LifeOS predicts, plans, and acts across your data so school runs itself more calmly."
         />
-        <div className="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((f, i) => (
             <motion.div
               key={f.title}

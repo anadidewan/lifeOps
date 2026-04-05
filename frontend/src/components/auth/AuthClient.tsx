@@ -3,57 +3,24 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Eye, EyeOff, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GlassCard } from "@/components/landing/GlassCard";
+<<<<<<< HEAD
+import { useAuth } from "@/context/AuthContext";
+import { formatAuthError } from "@/lib/auth-errors";
+=======
 import {
   formatAuthError,
   sendPasswordReset,
-  signInWithApple,
   signInWithEmail,
-  signInWithGoogle,
   signUpWithEmail,
   verifyTokenWithBackend,
 } from "@/lib/firebase/auth-flow";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
+>>>>>>> 9d150af0c7bd5bead295291c34d6a6efa3ff2a41
 import { cn } from "@/lib/cn";
 
 type Mode = "signin" | "signup";
-
-function GoogleIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden>
-      <path
-        fill="#EA4335"
-        d="M12 10.2v3.9h5.5c-.24 1.26-.96 2.32-2.04 3.04l3.3 2.56C20.36 17.37 22 14.74 22 12c0-.68-.06-1.34-.18-1.98H12z"
-      />
-      <path
-        fill="#34A853"
-        d="M5.26 14.09l-.66.5-2.34 1.82C3.7 18.98 7.62 22 12 22c3 0 5.52-1 7.36-2.7l-3.3-2.55c-.92.62-2.1.98-3.06.98-2.35 0-4.35-1.59-5.06-3.74z"
-      />
-      <path
-        fill="#4A90E2"
-        d="M5.26 9.91C4.48 11.35 4 12.92 4 14.55c0 1.63.48 3.2 1.26 4.64L8.6 16.1c-.3-.9-.48-1.86-.48-2.85 0-1.04.2-2.04.56-2.94L5.26 9.91z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M12 5.38c1.62 0 3.06.56 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.62 1 3.7 4.02 2.26 8.09l3.34 2.59C6.65 6.96 9.12 5.38 12 5.38z"
-      />
-    </svg>
-  );
-}
-
-function AppleIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden
-    >
-      <path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8-1.287-1.82-2.323-4.63-2.323-7.28 0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.09 3.822-1.09.616 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.955 4.45z" />
-    </svg>
-  );
-}
 
 const fieldClass = cn(
   "w-full rounded-xl border border-white/[0.09] bg-white/[0.04] px-4 py-3 text-sm text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
@@ -70,15 +37,15 @@ const primaryBtnClass = cn(
   "hover:brightness-[1.06] hover:shadow-[0_0_36px_-4px_rgba(139,92,246,0.8)] active:scale-[0.99]",
 );
 
-const socialBtnClass = cn(
-  "flex w-full items-center justify-center gap-2.5 rounded-full border border-white/[0.1] bg-white/[0.04] py-3 text-sm font-medium text-slate-100",
-  "shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm",
-  "transition-[border-color,background-color,transform,box-shadow] duration-200",
-  "hover:border-white/[0.16] hover:bg-white/[0.07] hover:shadow-[0_8px_28px_-16px_rgba(99,102,241,0.25)]",
-);
-
 export function AuthClient() {
   const router = useRouter();
+  const {
+    user,
+    loading: authLoading,
+    signInWithEmailPassword,
+    signInWithGoogleDemo,
+    signInWithAppleDemo,
+  } = useAuth();
   const [mode, setMode] = useState<Mode>("signin");
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -87,11 +54,10 @@ export function AuthClient() {
   const [loading, setLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
 
-  async function completeSignIn(credential: { user: { getIdToken: () => Promise<string> } }) {
-    const idToken = await credential.user.getIdToken();
-    await verifyTokenWithBackend(idToken);
-    router.push("/dashboard");
-  }
+  useEffect(() => {
+    if (authLoading || !user) return;
+    router.replace("/dashboard");
+  }, [user, authLoading, router]);
 
   return (
     <motion.main
@@ -146,14 +112,19 @@ export function AuthClient() {
               aria-hidden
             />
             <div className="relative">
+<<<<<<< HEAD
+=======
               {!isFirebaseConfigured() && (
                 <p className="mb-4 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-100/90">
-                  Firebase is not configured. Copy{" "}
-                  <code className="rounded bg-white/10 px-1 py-0.5 text-[10px]">env.example</code> to{" "}
-                  <code className="rounded bg-white/10 px-1 py-0.5 text-[10px]">.env.local</code> and add
-                  your web app keys (same project as the backend).
+                  Add your Firebase Web app keys:{" "}
+                  <code className="rounded bg-white/10 px-1 py-0.5 text-[10px]">NEXT_PUBLIC_FIREBASE_API_KEY</code>{" "}
+                  (and project id) in{" "}
+                  <code className="rounded bg-white/10 px-1 py-0.5 text-[10px]">.env</code> or{" "}
+                  <code className="rounded bg-white/10 px-1 py-0.5 text-[10px]">.env.local</code>. Service
+                  account keys are for the server only.
                 </p>
               )}
+>>>>>>> 9d150af0c7bd5bead295291c34d6a6efa3ff2a41
               {error && (
                 <p className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-center text-xs text-red-200/90">
                   {error}
@@ -188,22 +159,26 @@ export function AuthClient() {
                   e.preventDefault();
                   setError(null);
                   setResetMessage(null);
+<<<<<<< HEAD
+=======
                   if (!isFirebaseConfigured()) {
-                    setError("Firebase is not configured. Check .env.local.");
+                    setError("Firebase Web app is not configured. Set NEXT_PUBLIC_FIREBASE_API_KEY in .env or .env.local.");
                     return;
                   }
+>>>>>>> 9d150af0c7bd5bead295291c34d6a6efa3ff2a41
                   if (!email.trim() || !password) {
                     setError("Enter your email and password.");
                     return;
                   }
                   setLoading(true);
                   try {
-                    const cred =
-                      mode === "signin"
-                        ? await signInWithEmail(email, password)
-                        : await signUpWithEmail(email, password);
-                    await completeSignIn(cred);
+                    signInWithEmailPassword(
+                      email,
+                      password,
+                      mode === "signin" ? "signin" : "signup"
+                    );
                   } catch (err) {
+                    console.error("err", err);
                     setError(formatAuthError(err));
                   } finally {
                     setLoading(false);
@@ -289,26 +264,23 @@ export function AuthClient() {
                           type="button"
                           className="text-xs font-medium text-violet-300/95 transition-colors hover:text-violet-200"
                           disabled={loading}
-                          onClick={async () => {
+                          onClick={() => {
                             setError(null);
                             setResetMessage(null);
+<<<<<<< HEAD
+=======
                             if (!isFirebaseConfigured()) {
-                              setError("Firebase is not configured. Check .env.local.");
+                              setError("Firebase Web app is not configured. Set NEXT_PUBLIC_FIREBASE_API_KEY in .env or .env.local.");
                               return;
                             }
+>>>>>>> 9d150af0c7bd5bead295291c34d6a6efa3ff2a41
                             if (!email.trim()) {
                               setError("Enter your email address first.");
                               return;
                             }
-                            setLoading(true);
-                            try {
-                              await sendPasswordReset(email);
-                              setResetMessage("Check your inbox for a reset link.");
-                            } catch (err) {
-                              setError(formatAuthError(err));
-                            } finally {
-                              setLoading(false);
-                            }
+                            setResetMessage(
+                              "Demo mode: password reset is not connected. Use any password (6+ characters when creating an account) to continue."
+                            );
                           }}
                         >
                           Forgot password?
@@ -323,7 +295,11 @@ export function AuthClient() {
                   whileTap={{ scale: 0.995 }}
                   transition={{ type: "spring", stiffness: 400, damping: 24 }}
                 >
-                  <button type="submit" className={primaryBtnClass} disabled={loading}>
+                  <button
+                    type="submit"
+                    className={primaryBtnClass}
+                    disabled={loading}
+                  >
                     <span className="relative z-10">
                       {loading
                         ? mode === "signin"
@@ -339,6 +315,7 @@ export function AuthClient() {
                 </motion.div>
               </form>
 
+<<<<<<< HEAD
               <div className="relative my-7">
                 <div className="absolute inset-0 flex items-center" aria-hidden>
                   <div className="w-full border-t border-white/[0.08]" />
@@ -360,17 +337,12 @@ export function AuthClient() {
                     type="button"
                     className={socialBtnClass}
                     disabled={loading}
-                    onClick={async () => {
+                    onClick={() => {
                       setError(null);
                       setResetMessage(null);
-                      if (!isFirebaseConfigured()) {
-                        setError("Firebase is not configured. Check .env.local.");
-                        return;
-                      }
                       setLoading(true);
                       try {
-                        const cred = await signInWithGoogle();
-                        await completeSignIn(cred);
+                        signInWithGoogleDemo();
                       } catch (err) {
                         setError(formatAuthError(err));
                       } finally {
@@ -391,17 +363,12 @@ export function AuthClient() {
                     type="button"
                     className={socialBtnClass}
                     disabled={loading}
-                    onClick={async () => {
+                    onClick={() => {
                       setError(null);
                       setResetMessage(null);
-                      if (!isFirebaseConfigured()) {
-                        setError("Firebase is not configured. Check .env.local.");
-                        return;
-                      }
                       setLoading(true);
                       try {
-                        const cred = await signInWithApple();
-                        await completeSignIn(cred);
+                        signInWithAppleDemo();
                       } catch (err) {
                         setError(formatAuthError(err));
                       } finally {
@@ -415,6 +382,8 @@ export function AuthClient() {
                 </motion.div>
               </div>
 
+=======
+>>>>>>> 9d150af0c7bd5bead295291c34d6a6efa3ff2a41
               <div className="mt-8 text-center">
                 <AnimatePresence mode="wait" initial={false}>
                   {mode === "signin" ? (

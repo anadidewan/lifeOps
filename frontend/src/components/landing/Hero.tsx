@@ -5,6 +5,7 @@ import {
   useMotionTemplate,
   useMotionValue,
   useSpring,
+  useTransform,
 } from "framer-motion";
 import {
   AlertTriangle,
@@ -69,7 +70,7 @@ export function Hero() {
               className="inline-flex sm:inline-flex"
             >
               <Link
-                href="#cta"
+                href="/auth"
                 className={cn(
                   "inline-flex h-[3.15rem] min-w-[11.5rem] items-center justify-center gap-2 rounded-full px-8 text-sm font-semibold text-white",
                   "bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600",
@@ -114,8 +115,12 @@ function HeroDashboard() {
   const ref = useRef<HTMLDivElement>(null);
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
-  const rotateX = useSpring(0, { stiffness: 100, damping: 22 });
-  const rotateY = useSpring(0, { stiffness: 100, damping: 22 });
+  /** Subtle 3D tilt — max ~±7° / ±6° for premium feel */
+  const rotateX = useSpring(0, { stiffness: 72, damping: 18, mass: 0.55 });
+  const rotateY = useSpring(0, { stiffness: 72, damping: 18, mass: 0.55 });
+  /** Inner content shifts slightly opposite tilt for layered depth */
+  const parallaxX = useTransform(rotateY, (deg) => deg * 1.15);
+  const parallaxY = useTransform(rotateX, (deg) => -deg * 1.15);
 
   useEffect(() => {
     const el = ref.current;
@@ -131,8 +136,8 @@ function HeroDashboard() {
     const r = el.getBoundingClientRect();
     const px = (e.clientX - r.left) / r.width - 0.5;
     const py = (e.clientY - r.top) / r.height - 0.5;
-    rotateY.set(px * 5.5);
-    rotateX.set(-py * 4.5);
+    rotateY.set(px * 7);
+    rotateX.set(-py * 6);
     mx.set(e.clientX - r.left);
     my.set(e.clientY - r.top);
   };
@@ -148,7 +153,9 @@ function HeroDashboard() {
     }
   };
 
-  const spotlight = useMotionTemplate`radial-gradient(460px circle at ${mx}px ${my}px, rgba(139,92,246,0.16), transparent 58%)`;
+  const spotlight = useMotionTemplate`radial-gradient(520px circle at ${mx}px ${my}px, rgba(139,92,246,0.18), transparent 55%)`;
+  const rimGlow = useMotionTemplate`radial-gradient(380px ellipse at ${mx}px ${my}px, rgba(99,102,241,0.14), transparent 62%)`;
+  const sheen = useMotionTemplate`linear-gradient(128deg, transparent 38%, rgba(255,255,255,0.07) 49.5%, rgba(255,255,255,0.14) 50.5%, rgba(255,255,255,0.06) 52%, transparent 64%)`;
 
   return (
     <div className="relative w-full max-w-[min(100%,520px)] lg:ml-auto lg:max-w-[560px]">
@@ -160,7 +167,10 @@ function HeroDashboard() {
         className="pointer-events-none absolute -inset-4 rounded-[2rem] bg-gradient-to-tl from-violet-500/12 to-transparent opacity-80 blur-2xl"
         aria-hidden
       />
-      <div className="relative [perspective:1400px]" style={{ transformStyle: "preserve-3d" }}>
+      <div
+        className="relative [perspective:1600px]"
+        style={{ transformStyle: "preserve-3d" }}
+      >
         <motion.div
           animate={{ y: [0, -5, 0] }}
           transition={{
@@ -179,6 +189,7 @@ function HeroDashboard() {
               transformStyle: "preserve-3d",
               rotateX,
               rotateY,
+              transformPerspective: 1600,
             }}
             onMouseMove={handleMove}
             onMouseLeave={handleLeave}
@@ -190,7 +201,7 @@ function HeroDashboard() {
                 "bg-gradient-to-br from-white/25 via-white/[0.08] to-white/[0.03]",
                 "shadow-[0_32px_90px_-28px_rgba(0,0,0,0.75),0_0_0_1px_rgba(255,255,255,0.07)_inset,0_1px_0_rgba(255,255,255,0.1)_inset]"
               )}
-              style={{ transform: "translateZ(12px)" }}
+              style={{ translateZ: 14 }}
             >
               <div
                 className={cn(
@@ -202,11 +213,31 @@ function HeroDashboard() {
                 )}
               >
                 <motion.div
-                  className="pointer-events-none absolute inset-0 opacity-90 mix-blend-screen"
-                  style={{ background: spotlight }}
+                  className="pointer-events-none absolute inset-0 mix-blend-screen"
+                  style={{ background: spotlight, opacity: 0.92 }}
+                />
+                <motion.div
+                  className="pointer-events-none absolute inset-0 mix-blend-soft-light"
+                  style={{ background: rimGlow, opacity: 0.75 }}
+                />
+                <motion.div
+                  className="pointer-events-none absolute inset-0 opacity-[0.55]"
+                  style={{
+                    background: sheen,
+                    transformOrigin: "center",
+                  }}
                 />
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
 
+                <motion.div
+                  className="relative"
+                  style={{
+                    x: parallaxX,
+                    y: parallaxY,
+                    translateZ: 10,
+                    transformStyle: "preserve-3d",
+                  }}
+                >
                 <div className="relative border-b border-white/[0.06] bg-white/[0.04] px-4 py-3.5 backdrop-blur-sm sm:px-5">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5">
@@ -362,6 +393,7 @@ function HeroDashboard() {
                     </div>
                   </div>
                 </div>
+                </motion.div>
               </div>
             </motion.div>
           </motion.div>

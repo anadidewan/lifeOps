@@ -20,3 +20,4 @@ class User(Base):
 
     academic_priority_weight = Column(Float, nullable=False, default=1.2)
     personal_priority_weight = Column(Float, nullable=False, default=1.0)
+

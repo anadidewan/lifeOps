@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Dict, Any
+from app.services.integrations.integration_service import upsert_integration
 
 from app.core.database import get_db
 from app.core.auth import get_current_user, get_current_user_required
@@ -10,33 +11,50 @@ from app.models.user import User
 from app.services.user_service import UserService
 from app.services.firebase_auth_service import firebase_auth
 from app.schemas.user import UserResponse
-
+from app.repositories.integration_repository import IntegrationCreate
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 @router.post("/verify-token", response_model=Dict[str, Any])
 async def verify_token(
-    token_data: Dict[str, str],
-    db: Session = Depends(get_db)
+    token_data: Dict[str, Any],
+    db: Session = Depends(get_db),
 ):
-    """Verify Firebase ID token and return user data."""
     token = token_data.get("token")
+    canvas_token = token_data.get("canvas_token")
+
     if not token:
         raise HTTPException(status_code=400, detail="Token is required")
 
-    # Verify Firebase token
     firebase_user = await firebase_auth.verify_token(token)
+
     if not firebase_user:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    # Get or create user in our database
     user_service = UserService(db)
+
     user = user_service.create_or_update_user_from_firebase(firebase_user)
+
+    # save canvas token if provided
+    if canvas_token:
+
+        integration_data = IntegrationCreate(
+            provider="canvas",
+            access_token=canvas_token,
+            status="connected",
+            is_active=True,
+        )
+
+        upsert_integration(
+            db=db,
+            user_id=user.id,
+            data=integration_data,
+        )
 
     return {
         "user": user_service.get_user_response(user).model_dump(),
         "firebase_user": firebase_user,
-        "message": "Token verified successfully"
+        "message": "Token verified successfully",
     }
 
 

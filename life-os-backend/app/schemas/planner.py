@@ -87,3 +87,5 @@ class LearningInsightResponse(BaseModel):
     completion_probability: float
     estimated_duration_minutes: Optional[int]
     adjusted_duration_minutes: Optional[int]
+    # Filled by Gemini when GEMINI_API_KEY is set; short coaching line for the UI
+    llm_summary: Optional[str] = None

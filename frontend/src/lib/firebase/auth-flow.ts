@@ -6,16 +6,27 @@ import {
 } from "firebase/auth";
 import { getFirebaseAuth } from "./client";
 
+export type VerifyTokenOptions = {
+  /** When set, persisted by FastAPI as the Canvas integration access token (same POST /auth/verify-token). */
+  canvasToken?: string;
+};
+
 /**
  * Registers the Firebase session with the FastAPI backend (POST /auth/verify-token).
  * Calls the Next.js route `/api/auth/verify-token`, which proxies to `BACKEND_API_URL`
  * so the browser does not need CORS or a public API URL.
+ *
+ * Optional `canvasToken` is sent as `canvas_token` so the backend can upsert the Canvas integration in one request.
  */
-export async function verifyTokenWithBackend(idToken: string): Promise<void> {
+export async function verifyTokenWithBackend(idToken: string, options?: VerifyTokenOptions): Promise<void> {
+  const body: Record<string, string> = { token: idToken };
+  const canvas = options?.canvasToken?.trim();
+  if (canvas) body.canvas_token = canvas;
+
   const res = await fetch("/api/auth/verify-token", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: idToken }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {

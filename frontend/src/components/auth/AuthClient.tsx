@@ -5,7 +5,6 @@ import { Eye, EyeOff, GraduationCap, Mail, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { GlassCard } from "@/components/landing/GlassCard";
-import { connectCanvasIntegration } from "@/lib/api/connect-canvas";
 import {
   formatAuthError,
   sendPasswordReset,
@@ -13,7 +12,9 @@ import {
   signUpWithEmail,
   verifyTokenWithBackend,
 } from "@/lib/firebase/auth-flow";
-import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase/client";
+import { redirectToGmailOAuth } from "@/lib/api/connect-gmail";
+import { triggerIntegrationSync } from "@/lib/api/integrations";
 import { cn } from "@/lib/cn";
 
 type Mode = "signin" | "signup";
@@ -175,94 +176,6 @@ function CanvasConnectModal({ open, onClose, token, onTokenChange }: CanvasConne
   );
 }
 
-type EmailConnectModalProps = {
-  open: boolean;
-  onClose: () => void;
-};
-
-function EmailConnectModal({ open, onClose }: EmailConnectModalProps) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <motion.button
-            type="button"
-            aria-label="Close dialog"
-            className="absolute inset-0 bg-[#030512]/75 backdrop-blur-md"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-          />
-
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="email-connect-title"
-            className={modalShellClass}
-            initial={{ opacity: 0, y: 18, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.98 }}
-            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className={modalInnerClass}>
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-px rounded-t-[1.2rem] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-
-              <div className="relative flex items-start justify-between gap-3 border-b border-white/[0.06] px-5 py-4">
-                <div>
-                  <h2 id="email-connect-title" className="text-lg font-semibold tracking-tight text-white">
-                    Connect email
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Use the email field on this form to create your account
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-slate-300"
-                  aria-label="Close"
-                >
-                  <X className="h-4 w-4" strokeWidth={2} />
-                </button>
-              </div>
-
-              <div className="space-y-4 px-5 py-5">
-                <p className="text-[13px] leading-relaxed text-slate-300">
-                  After you sign up, you can connect Gmail or Microsoft from the app settings so assignments
-                  and messages can sync with LifeOS.
-                </p>
-                <button type="button" onClick={onClose} className={primaryBtnClass}>
-                  <span className="relative z-10">Got it</span>
-                  <span
-                    className="pointer-events-none absolute inset-0 bg-gradient-to-t from-transparent via-white/[0.05] to-white/[0.1]"
-                    aria-hidden
-                  />
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
 export function AuthClient() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("signin");
@@ -273,18 +186,79 @@ export function AuthClient() {
   const [loading, setLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
   const [canvasModalOpen, setCanvasModalOpen] = useState(false);
-  const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [canvasToken, setCanvasToken] = useState("");
 
-  async function completeSignIn(credential: { user: { getIdToken: () => Promise<string> } }) {
+  async function completeSignIn(
+    credential: { user: { getIdToken: () => Promise<string> } },
+    options?: { connectGmail?: boolean }
+  ) {
     const idToken = await credential.user.getIdToken();
-    await verifyTokenWithBackend(idToken);
     const trimmedCanvas = canvasToken.trim();
-    if (trimmedCanvas) {
-      await connectCanvasIntegration(trimmedCanvas);
-    }
+    await verifyTokenWithBackend(
+      idToken,
+      trimmedCanvas ? { canvasToken: trimmedCanvas } : undefined
+    );
     setCanvasToken("");
+    if (trimmedCanvas) {
+      try {
+        await triggerIntegrationSync("canvas");
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("lifeos_canvas_sync_error");
+        }
+      } catch (err) {
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("lifeos_canvas_sync_error", formatAuthError(err));
+        }
+      }
+    }
+    if (options?.connectGmail) {
+      try {
+        await redirectToGmailOAuth();
+      } catch (err) {
+        setError(formatAuthError(err));
+        router.push("/dashboard");
+      }
+      return;
+    }
     router.push("/dashboard");
+  }
+
+  /** Gmail OAuth requires a backend user; sign up first if needed, then open Google (same as Continue + Gmail). */
+  async function handleConnectEmailClick() {
+    setError(null);
+    setResetMessage(null);
+    if (!isFirebaseConfigured()) {
+      setError("Firebase Web app is not configured. Set NEXT_PUBLIC_FIREBASE_API_KEY in .env or .env.local.");
+      return;
+    }
+
+    const existing = getFirebaseAuth().currentUser;
+    if (existing) {
+      setLoading(true);
+      try {
+        await completeSignIn({ user: existing }, { connectGmail: true });
+      } catch (err) {
+        setError(formatAuthError(err));
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    if (!email.trim() || !password) {
+      setError("Enter your email and password, then click Connect email to create your account and open Gmail.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const cred = await signUpWithEmail(email, password);
+      await completeSignIn(cred, { connectGmail: true });
+    } catch (err) {
+      setError(formatAuthError(err));
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -487,7 +461,7 @@ export function AuthClient() {
                           type="button"
                           className={connectOutlineBtnClass}
                           disabled={loading}
-                          onClick={() => setEmailModalOpen(true)}
+                          onClick={() => void handleConnectEmailClick()}
                         >
                           <Mail className="h-4 w-4 shrink-0 text-violet-300/90" strokeWidth={2} />
                           Connect email
@@ -506,7 +480,29 @@ export function AuthClient() {
                       exit={{ opacity: 0, y: -4 }}
                       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                      <div className="flex flex-col gap-2 pt-1">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className={connectOutlineBtnClass}
+                            disabled={loading}
+                            onClick={() => setCanvasModalOpen(true)}
+                          >
+                            <GraduationCap className="h-4 w-4 shrink-0 text-violet-300/90" strokeWidth={2} />
+                            Connect Canvas
+                          </button>
+                          <button
+                            type="button"
+                            className={connectOutlineBtnClass}
+                            disabled={loading}
+                            onClick={() => void handleConnectEmailClick()}
+                          >
+                            <Mail className="h-4 w-4 shrink-0 text-violet-300/90" strokeWidth={2} />
+                            Connect email
+                          </button>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                         <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-400">
                           <input
                             type="checkbox"
@@ -630,7 +626,6 @@ export function AuthClient() {
         token={canvasToken}
         onTokenChange={setCanvasToken}
       />
-      <EmailConnectModal open={emailModalOpen} onClose={() => setEmailModalOpen(false)} />
     </motion.main>
   );
 }

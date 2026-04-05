@@ -17,6 +17,7 @@ from app.schemas.planner import (
 from app.schemas.plan import PlanResponse
 
 from app.services.planner.planner_service import PlannerService
+from app.services.planner.learning_insights_llm import enrich_learning_insights_with_gemini
 
 
 router = APIRouter(prefix="/planner", tags=["planner"])
@@ -210,5 +211,7 @@ def learning_insights(
         key=lambda x: (x.distress_score, -x.completion_probability),
         reverse=True,
     )
+
+    insights = enrich_learning_insights_with_gemini(insights)
 
     return insights

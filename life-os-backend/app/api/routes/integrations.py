@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -158,10 +159,11 @@ def sync_gmail(
         raise HTTPException(status_code=404, detail="No active gmail integration found")
 
     gmail_service = GmailService()
-    tasks = gmail_service.sync(integration, db)
+    result = gmail_service.sync(integration, db)
+    task_list = result.get("tasks", [])
 
     return {
         "provider": "gmail",
-        "tasks_found": len(tasks),
-        "tasks": [task.model_dump() for task in tasks],
+        "tasks_found": len(task_list),
+        "tasks": [asdict(t) for t in task_list],
     }

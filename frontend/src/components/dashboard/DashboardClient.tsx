@@ -14,27 +14,32 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { triggerIntegrationSync } from "@/lib/api/integrations";
+import { getLearningInsights, getRiskInsights } from "@/lib/api/planner";
+import { listMeetings } from "@/lib/api/meetings";
+import { listTasks, skipTask } from "@/lib/api/tasks";
+import type {
+  LearningInsightResponse,
+  MeetingResponse,
+  RiskInsightResponse,
+  TaskResponse,
+} from "@/lib/api/types";
+import { formatAuthError } from "@/lib/firebase/auth-flow";
 import { getFirebaseAuth } from "@/lib/firebase/client";
+import { taskResponseToDetailedPlanTask } from "@/lib/dashboard/map-api-task";
 import { DayPlanDetailModal } from "@/components/dashboard/DayPlanDetailModal";
 import { PlanTaskRow } from "@/components/dashboard/PlanTaskRow";
 import { EndOfDayReviewModal } from "@/components/dashboard/EndOfDayReviewModal";
 import { GlassCard } from "@/components/landing/GlassCard";
+import { getPlanDayTaskStats, sortTasksByTime } from "@/lib/dashboard/day-plan-detail";
 import {
-  getDetailedPlanTasksForWeekday,
-  getPlanDayTaskStats,
-  sortTasksByTime,
-  type DetailedPlanTask,
-} from "@/lib/dashboard/day-plan-detail";
-import { getTodaysPlanTasks } from "@/lib/dashboard/todays-plan-tasks";
-import {
-  getDemoDueSummaryLine,
   getDemoGmailComposeHref,
   mockAiSuggestions,
   mockEmailDraft,
-  mockFailureAlert,
   mockProgress,
   mockWeeklyPlan,
+  type PlanTask,
   type WeeklyBlockVariant,
 } from "@/lib/mock/demo-dashboard-data";
 import { cn } from "@/lib/cn";
@@ -80,6 +85,69 @@ const cardHover = {
   transition: { type: "spring" as const, stiffness: 380, damping: 28 },
 };
 
+function sameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function isSameLocalDay(iso: string, day: Date): boolean {
+  const d = new Date(iso);
+  return sameDay(d, day);
+}
+
+/** How far ahead (from start of today) we show tasks on the "Day plan · Today" column. */
+const TODAY_PLAN_UPCOMING_DAYS = 7;
+
+/**
+ * Tasks shown for a given calendar day column.
+ * - For **today**: include overdue, due today, and due within the next `TODAY_PLAN_UPCOMING_DAYS` days
+ *   (so synced Canvas assignments with future due dates actually appear).
+ * - For **other days**: only tasks whose deadline falls on that day (and undated tasks never appear there).
+ */
+function tasksForDayColumn(tasks: TaskResponse[], day: Date, isTodayColumn: boolean): TaskResponse[] {
+  const todayStart = startOfLocalDay(new Date());
+  const dayStart = startOfLocalDay(day);
+  const columnIsToday = sameDay(dayStart, todayStart);
+  const upcomingEnd = addDays(todayStart, TODAY_PLAN_UPCOMING_DAYS);
+
+  return tasks.filter((t) => {
+    if (t.status === "completed" || t.status === "skipped") return false;
+
+    if (!t.deadline) {
+      return isTodayColumn && columnIsToday;
+    }
+
+    const d = new Date(t.deadline);
+    if (Number.isNaN(d.getTime())) {
+      return isTodayColumn && columnIsToday;
+    }
+
+    if (isSameLocalDay(t.deadline, day)) return true;
+
+    if (columnIsToday && isTodayColumn) {
+      if (d < todayStart) return true;
+      if (d >= todayStart && d < upcomingEnd) return true;
+    }
+
+    return false;
+  });
+}
+
+function statsForDayTasks(
+  tasks: TaskResponse[],
+  day: Date,
+  isToday: boolean
+): { total: number; dueThatDay: number } {
+  const col = tasksForDayColumn(tasks, day, isToday);
+  return {
+    total: col.length,
+    dueThatDay: col.filter((t) => t.deadline && isSameLocalDay(t.deadline, day)).length,
+  };
+}
+
 function dashboardGreetingFromEmail(email: string | null | undefined): string {
   const hour = new Date().getHours();
   const salutation =
@@ -114,7 +182,88 @@ export function DashboardClient() {
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [planModalDayIndex, setPlanModalDayIndex] = useState(0);
-  const todaysPlanTasks = useMemo(() => getTodaysPlanTasks(), []);
+
+  const [apiTasks, setApiTasks] = useState<TaskResponse[] | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [canvasSyncError, setCanvasSyncError] = useState<string | null>(null);
+  const [riskInsights, setRiskInsights] = useState<RiskInsightResponse[]>([]);
+  const [learningInsights, setLearningInsights] = useState<LearningInsightResponse[]>([]);
+  const [meetingsLoaded, setMeetingsLoaded] = useState<MeetingResponse[]>([]);
+
+  const refreshTasks = useCallback(async () => {
+    const tasks = await listTasks();
+    setApiTasks(tasks);
+  }, []);
+
+  const retryCanvasSync = useCallback(async () => {
+    try {
+      setCanvasSyncError(null);
+      await triggerIntegrationSync("canvas");
+      await refreshTasks();
+    } catch (e) {
+      setCanvasSyncError(formatAuthError(e));
+    }
+  }, [refreshTasks]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const msg = sessionStorage.getItem("lifeos_canvas_sync_error");
+      if (msg) {
+        setCanvasSyncError(msg);
+        sessionStorage.removeItem("lifeos_canvas_sync_error");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setApiError(null);
+        if (
+          typeof window !== "undefined" &&
+          sessionStorage.getItem("lifeos_pending_gmail_sync") === "1"
+        ) {
+          sessionStorage.removeItem("lifeos_pending_gmail_sync");
+          try {
+            await triggerIntegrationSync("gmail");
+          } catch {
+            /* ignore */
+          }
+        }
+        const today = startOfLocalDay(new Date());
+        const [tasks, risk, learn, meet] = await Promise.all([
+          listTasks(),
+          getRiskInsights(today),
+          getLearningInsights(today),
+          listMeetings(),
+        ]);
+        if (!cancelled) {
+          setApiTasks(tasks);
+          setRiskInsights(risk);
+          setLearningInsights(learn);
+          setMeetingsLoaded(meet);
+        }
+      } catch (e) {
+        if (!cancelled) setApiError(formatAuthError(e));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSkipTask = useCallback(
+    async (id: string) => {
+      try {
+        await skipTask(parseInt(id, 10));
+        await refreshTasks();
+      } catch (e) {
+        setApiError(formatAuthError(e));
+      }
+    },
+    [refreshTasks]
+  );
 
   const rollingWeek = useMemo(() => {
     const today = startOfLocalDay(new Date());
@@ -136,17 +285,43 @@ export function DashboardClient() {
   const planModalDay = rollingWeek[planModalDayIndex] ?? rollingWeek[0];
 
   const todayRolling = rollingWeek[0];
-  const [todayPlanTasks, setTodayPlanTasks] = useState<DetailedPlanTask[]>(() => {
+
+  const todayPlanTasks = useMemo(() => {
+    if (!apiTasks) return [];
     const today = startOfLocalDay(new Date());
-    return sortTasksByTime([...getDetailedPlanTasksForWeekday(mondayFirstIndex(today))]);
-  });
+    const raw = tasksForDayColumn(apiTasks, today, true);
+    return sortTasksByTime(raw.map(taskResponseToDetailedPlanTask));
+  }, [apiTasks]);
+
+  const todaysPlanTasks = todayPlanTasks;
+
+  const eodPlanTasks: PlanTask[] = useMemo(
+    () => todayPlanTasks.map((t) => ({ id: t.id, name: t.title })),
+    [todayPlanTasks]
+  );
 
   const planModalTasks = useMemo(() => {
-    if (planModalDayIndex === 0) {
-      return todayPlanTasks;
-    }
-    return getDetailedPlanTasksForWeekday(mondayFirstIndex(planModalDay.date));
-  }, [planModalDayIndex, planModalDay.date, todayPlanTasks]);
+    if (!apiTasks) return [];
+    const isTodayCol = sameDay(planModalDay.date, startOfLocalDay(new Date()));
+    const raw = tasksForDayColumn(apiTasks, planModalDay.date, isTodayCol);
+    return sortTasksByTime(raw.map(taskResponseToDetailedPlanTask));
+  }, [apiTasks, planModalDay.date]);
+
+  const topRisk = riskInsights[0];
+  const insightLines = learningInsights.slice(0, 5).map((i) => {
+    const llm =
+      typeof i.llm_summary === "string" && i.llm_summary.trim()
+        ? i.llm_summary.trim()
+        : typeof (i as { llmSummary?: unknown }).llmSummary === "string"
+          ? String((i as { llmSummary: string }).llmSummary).trim()
+          : "";
+    return {
+      key: String(i.task_id),
+      text:
+        llm ||
+        `${i.title}: distress ${(i.distress_score * 100).toFixed(0)}%, completion ~${(i.completion_probability * 100).toFixed(0)}%`,
+    };
+  });
 
   const todayTitle = todayRolling
     ? todayRolling.date.toLocaleDateString(undefined, {
@@ -201,6 +376,29 @@ export function DashboardClient() {
           >
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
 
+            {apiError ? (
+              <div className="border-b border-red-500/25 bg-red-500/10 px-4 py-2 text-center text-xs text-red-200/95 sm:px-6">
+                {apiError}
+              </div>
+            ) : null}
+            {canvasSyncError ? (
+              <div className="flex flex-col gap-2 border-b border-amber-500/25 bg-amber-500/10 px-4 py-2 text-center text-xs text-amber-100/95 sm:flex-row sm:items-center sm:justify-center sm:px-6">
+                <p>
+                  Canvas sync failed: {canvasSyncError}. Set{" "}
+                  <code className="rounded bg-white/10 px-1">CANVAS_BASE_URL</code> in the backend{" "}
+                  <code className="rounded bg-white/10 px-1">.env</code> to your school&apos;s Canvas base URL (same
+                  site where you created the token), restart the API, then retry.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void retryCanvasSync()}
+                  className="shrink-0 rounded-lg border border-amber-400/40 bg-amber-500/20 px-3 py-1 text-[11px] font-semibold text-amber-50 hover:bg-amber-500/30"
+                >
+                  Retry Canvas sync
+                </button>
+              </div>
+            ) : null}
+
             <div className="relative border-b border-white/[0.06] bg-white/[0.04] px-4 py-4 backdrop-blur-sm sm:px-6 sm:py-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
@@ -213,7 +411,13 @@ export function DashboardClient() {
                     <p className="text-sm font-medium tracking-wide text-slate-200">
                       {dashboardGreetingFromEmail(greetingEmail)}
                     </p>
-                    <p className="mt-0.5 text-xs text-slate-500">{getDemoDueSummaryLine()}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {apiError
+                        ? "Could not load plan data."
+                        : apiTasks
+                          ? `${todayPlanTasks.length} task(s) today · ${meetingsLoaded.length} meeting(s) loaded`
+                          : "Loading plan…"}
+                    </p>
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 sm:self-center">
@@ -302,7 +506,11 @@ export function DashboardClient() {
                       ) : null}
                     </div>
                     <div className="max-h-[min(52vh,420px)] overflow-y-auto px-4 py-3 sm:px-5 sm:py-4">
-                      {todayPlanTasks.length === 0 ? (
+                      {apiTasks === null && !apiError ? (
+                        <p className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-6 text-center text-sm text-slate-500">
+                          Loading tasks…
+                        </p>
+                      ) : todayPlanTasks.length === 0 ? (
                         <p className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-6 text-center text-sm text-slate-500">
                           No tasks left for this day.
                         </p>
@@ -312,11 +520,7 @@ export function DashboardClient() {
                             <li key={task.id}>
                               <PlanTaskRow
                                 task={task}
-                                onRemove={() =>
-                                  setTodayPlanTasks((prev) =>
-                                    prev.filter((t) => t.id !== task.id)
-                                  )
-                                }
+                                onRemove={() => void handleSkipTask(task.id)}
                               />
                             </li>
                           ))}
@@ -330,7 +534,13 @@ export function DashboardClient() {
                       const i = j + 1;
                       const block = day.block;
                       const selected = selectedDayIndex === i;
-                      const stats = getPlanDayTaskStats(mondayFirstIndex(day.date));
+                      const stats = apiTasks
+                        ? statsForDayTasks(
+                            apiTasks,
+                            day.date,
+                            sameDay(day.date, startOfLocalDay(new Date()))
+                          )
+                        : getPlanDayTaskStats(mondayFirstIndex(day.date));
                       return (
                         <div key={day.date.toISOString()} className="min-w-0 text-center">
                           <div className="flex flex-col items-center gap-0.5 rounded-lg px-0.5 py-1 sm:px-1">
@@ -402,14 +612,16 @@ export function DashboardClient() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-amber-100/95">
-                          {mockFailureAlert.label}
+                          {topRisk ? "Top risk" : "Risk insights"}
                         </p>
                         <p className="mt-1.5 text-sm font-medium text-amber-50">
-                          {mockFailureAlert.projectName}
+                          {topRisk?.title ?? "No risk data yet"}
                         </p>
-                        <p className="mt-0.5 text-xs text-amber-200/80">{mockFailureAlert.riskLevel}</p>
+                        <p className="mt-0.5 text-xs text-amber-200/80">
+                          {topRisk ? `Score ${(topRisk.risk_score * 100).toFixed(0)}%` : "Complete tasks to see scores"}
+                        </p>
                         <p className="mt-1 text-[11px] text-amber-200/70">
-                          {mockFailureAlert.progressMeta}
+                          {topRisk?.risk_reason ?? "Sync Canvas or Gmail, then refresh."}
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <button
@@ -439,8 +651,11 @@ export function DashboardClient() {
                       </span>
                     </div>
                     <ul className="mt-3 space-y-2 text-xs leading-snug text-slate-100/95">
-                      {mockAiSuggestions.map((line) => (
-                        <li key={line}>{line}</li>
+                      {(insightLines.length > 0
+                        ? insightLines
+                        : mockAiSuggestions.map((t, idx) => ({ key: `mock-${idx}`, text: t }))
+                      ).map((row) => (
+                        <li key={row.key}>{row.text}</li>
                       ))}
                     </ul>
                   </div>
@@ -519,17 +734,13 @@ export function DashboardClient() {
         date={planModalDay.date}
         summaryLine={planModalDay.block?.text ?? null}
         tasks={planModalTasks}
-        onTasksChange={
-          planModalDayIndex === 0
-            ? (next) => setTodayPlanTasks(sortTasksByTime(next))
-            : undefined
-        }
+        onTaskRemove={apiTasks ? handleSkipTask : undefined}
       />
 
       <EndOfDayReviewModal
         open={eodOpen}
         onClose={() => setEodOpen(false)}
-        todaysTasks={todaysPlanTasks}
+        todaysTasks={eodPlanTasks}
       />
     </motion.main>
   );

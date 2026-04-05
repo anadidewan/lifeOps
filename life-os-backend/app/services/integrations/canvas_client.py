@@ -34,8 +34,25 @@ class CanvasClient:
     def get_todo(self):
         return self.get("/api/v1/users/self/todo")
 
-    def get_calendar_events(self):
-        return self.get("/api/v1/calendar_events")
+    def get_calendar_events(
+        self,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ):
+        params: dict | None = None
+        if start_date or end_date:
+            params = {}
+            if start_date:
+                params["start_date"] = start_date
+            if end_date:
+                params["end_date"] = end_date
+        return self.get("/api/v1/calendar_events", params)
+
+    def get_planner_items(self, start_date: str, end_date: str):
+        return self.get(
+            "/api/v1/planner/items",
+            {"start_date": start_date, "end_date": end_date},
+        )
 
     def get_course_assignment_deadlines(self, course_id: int):
         return self.get(

@@ -52,7 +52,10 @@ def run_provider_sync(
     skipped = 0
 
     try:
-        result = provider_service.sync(integration, db)
+        if provider == "gmail":
+            result = provider_service.sync(integration, db)
+        else:
+            result = provider_service.sync(integration)
         skipped += int(result.get("skipped", 0))
 
         for item in result.get("tasks", []):

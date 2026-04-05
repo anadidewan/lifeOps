@@ -13,26 +13,54 @@ def _parse_dt(value: str | None):
         return None
 
 
+def _assignment_payload(item: dict[str, Any]) -> dict[str, Any]:
+    """Normalize classic todo rows and planner rows (`plannable` + `plannable_type`)."""
+    a = item.get("assignment")
+    if isinstance(a, dict) and a:
+        return a
+    pt = (item.get("plannable_type") or "").lower()
+    pl = item.get("plannable")
+    if isinstance(pl, dict) and pl:
+        if pt in (
+            "assignment",
+            "quiz",
+            "discussion_topic",
+            "discussion",
+            "wiki_page",
+            "sub_assignment",
+            "planner_note",
+        ):
+            return pl
+        if pt:
+            return pl
+    return {}
+
+
 class CanvasParser:
     def parse_todo_items(self, todo_items: list[dict[str, Any]]) -> list[NormalizedTask]:
         tasks: list[NormalizedTask] = []
 
         for item in todo_items:
-            assignment = item.get("assignment") or {}
+            assignment = _assignment_payload(item)
+            if not assignment and not item.get("due_at") and not item.get("title"):
+                continue
+
             title = (
                 assignment.get("name")
                 or item.get("assignment_name")
                 or item.get("title")
+                or assignment.get("title")
                 or "Canvas To-Do"
             )
 
             description = assignment.get("description") or item.get("description")
-            source_id = assignment.get("id") or item.get("assignment_id") or item.get("id")
-            deadline = _parse_dt(
-                assignment.get("due_at")
-                or item.get("due_at")
-                or item.get("assignment", {}).get("due_at")
+            source_id = (
+                assignment.get("id")
+                or item.get("assignment_id")
+                or item.get("plannable_id")
+                or item.get("id")
             )
+            deadline = _parse_dt(assignment.get("due_at") or item.get("due_at"))
 
             tasks.append(
                 NormalizedTask(

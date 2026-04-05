@@ -13,7 +13,7 @@ class Integration(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     provider = Column(String, nullable=False, index=True)  # "canvas", "gmail"
     is_active = Column(Boolean, default=True, nullable=False)
-
+    status = Column(String, nullable=True) 
     access_token = Column(Text, nullable=True)
     refresh_token = Column(Text, nullable=True)
     #token_type = Column(String, nullable=True)
@@ -24,5 +24,7 @@ class Integration(Base):
     #provider_email = Column(String, nullable=True)        # gmail address
 
     last_synced_at = Column(DateTime(timezone=True), nullable=True)
+    # JSON array of Gmail message ids already processed by AI sync (dedupe / cost control)
+    gmail_processed_message_ids = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

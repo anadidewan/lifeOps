@@ -20,6 +20,8 @@ type DayPlanDetailModalProps = {
   tasks: DetailedPlanTask[];
   /** When set (e.g. for today’s plan), removals sync back to the parent dashboard list. */
   onTasksChange?: (tasks: DetailedPlanTask[]) => void;
+  /** When set, called before removing a task from the list (e.g. persist skip to the API). */
+  onTaskRemove?: (id: string) => void | Promise<void>;
 };
 
 export function DayPlanDetailModal({
@@ -29,12 +31,18 @@ export function DayPlanDetailModal({
   summaryLine,
   tasks,
   onTasksChange,
+  onTaskRemove,
 }: DayPlanDetailModalProps) {
   const [localTasks, setLocalTasks] = useState<DetailedPlanTask[]>(() => tasks);
 
   const sortedTasks = useMemo(() => sortTasksByTime(localTasks), [localTasks]);
 
-  const removeTask = (id: string) => {
+  const removeTask = async (id: string) => {
+    try {
+      await onTaskRemove?.(id);
+    } catch {
+      /* parent may surface errors */
+    }
     setLocalTasks((prev) => {
       const next = prev.filter((t) => t.id !== id);
       onTasksChange?.(next);
@@ -58,6 +66,10 @@ export function DayPlanDetailModal({
       document.body.style.overflow = "";
     };
   }, [open]);
+
+  useEffect(() => {
+    if (open) setLocalTasks(tasks);
+  }, [tasks, open]);
 
   const title = date.toLocaleDateString(undefined, {
     weekday: "long",

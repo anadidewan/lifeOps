@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     FIREBASE_PROJECT_ID: str = ""
     FIREBASE_PRIVATE_KEY: str = ""
     FIREBASE_CLIENT_EMAIL: str = ""
+    CANVAS_BASE_URL: str
+    OUTPUT_DIR:str
+    REQUEST_TIMEOUT_SECONDS:int 
+    GOOGLE_CLIENT_ID: str
+    GOOGLE_CLIENT_SECRET: str
+    GOOGLE_REDIRECT_URI: str
 
     class Config:
         env_file = ".env"

@@ -41,3 +41,6 @@ class UserResponse(BaseModel):
     personal_priority_weight: float
 
     model_config = ConfigDict(from_attributes=True)
+
+class CanvasConnectRequest(BaseModel):
+    access_token: Optional[str] = None

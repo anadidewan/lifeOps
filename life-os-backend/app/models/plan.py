@@ -1,5 +1,7 @@
 from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, Text
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
+
 from app.core.database import Base
 
 
@@ -15,6 +17,13 @@ class Plan(Base):
     summary = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    blocks = relationship(
+        "PlanBlock",
+        back_populates="plan",
+        cascade="all, delete-orphan",
+        order_by="PlanBlock.start_time",
+    )
 
 
 class PlanBlock(Base):
@@ -33,3 +42,5 @@ class PlanBlock(Base):
     linked_meeting_id = Column(Integer, ForeignKey("meetings.id"), nullable=True)
 
     rationale = Column(Text, nullable=True)
+
+    plan = relationship("Plan", back_populates="blocks")

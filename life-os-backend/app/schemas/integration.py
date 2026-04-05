@@ -28,3 +28,14 @@ class IntegrationResponse(BaseModel):
     last_synced_at: Optional[datetime]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SyncResultResponse(BaseModel):
+    provider: str
+    tasks_created: int
+    tasks_updated: int
+    meetings_created: int
+    meetings_updated: int
+    skipped: int
+    status: str
+    detail: str

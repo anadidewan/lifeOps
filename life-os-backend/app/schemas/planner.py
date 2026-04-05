@@ -35,7 +35,6 @@ class PlannerPreviewResponse(BaseModel):
     meetings: List[PlannerMeetingResponse]
 
 
-
 class TimeSlotResponse(BaseModel):
     start_time: datetime
     end_time: datetime
@@ -68,3 +67,23 @@ class GeneratedPlanResponse(BaseModel):
     free_slots: List[TimeSlotResponse]
     scheduled_blocks: List[ScheduledTaskBlockResponse]
     unscheduled_tasks: List[UnscheduledTaskResponse]
+
+
+class RiskInsightResponse(BaseModel):
+    task_id: int
+    title: str
+    category: str
+    deadline: Optional[datetime]
+    estimated_duration_minutes: Optional[int]
+    risk_score: float
+    risk_reason: str
+
+
+class LearningInsightResponse(BaseModel):
+    task_id: int
+    title: str
+    category: str
+    distress_score: float
+    completion_probability: float
+    estimated_duration_minutes: Optional[int]
+    adjusted_duration_minutes: Optional[int]

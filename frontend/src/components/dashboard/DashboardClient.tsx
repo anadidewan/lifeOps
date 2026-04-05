@@ -13,7 +13,9 @@ import {
   Sparkles,
   TrendingUp,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { useEffect, useMemo, useState } from "react";
+import { getFirebaseAuth } from "@/lib/firebase/client";
 import { DayPlanDetailModal } from "@/components/dashboard/DayPlanDetailModal";
 import { PlanTaskRow } from "@/components/dashboard/PlanTaskRow";
 import { EndOfDayReviewModal } from "@/components/dashboard/EndOfDayReviewModal";
@@ -31,7 +33,6 @@ import {
   mockAiSuggestions,
   mockEmailDraft,
   mockFailureAlert,
-  mockHeader,
   mockProgress,
   mockWeeklyPlan,
   type WeeklyBlockVariant,
@@ -79,8 +80,36 @@ const cardHover = {
   transition: { type: "spring" as const, stiffness: 380, damping: 28 },
 };
 
+function dashboardGreetingFromEmail(email: string | null | undefined): string {
+  const hour = new Date().getHours();
+  const salutation =
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  let local = "";
+  if (email?.includes("@")) {
+    local = email.split("@")[0]?.trim() ?? "";
+  } else if (email?.trim()) {
+    local = email.trim();
+  }
+  const name = local.length > 0 ? local : "there";
+  return `${salutation}, ${name}`;
+}
+
 export function DashboardClient() {
+  const [greetingEmail, setGreetingEmail] = useState<string | null>(null);
   const [eodOpen, setEodOpen] = useState(false);
+
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+    try {
+      const auth = getFirebaseAuth();
+      unsub = onAuthStateChanged(auth, (user) => {
+        setGreetingEmail(user?.email ?? null);
+      });
+    } catch {
+      setGreetingEmail(null);
+    }
+    return () => unsub?.();
+  }, []);
   const [stressLevel, setStressLevel] = useState<number | null>(null);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [planModalOpen, setPlanModalOpen] = useState(false);
@@ -182,7 +211,7 @@ export function DashboardClient() {
                   </div>
                   <div>
                     <p className="text-sm font-medium tracking-wide text-slate-200">
-                      {mockHeader.greeting}
+                      {dashboardGreetingFromEmail(greetingEmail)}
                     </p>
                     <p className="mt-0.5 text-xs text-slate-500">{getDemoDueSummaryLine()}</p>
                   </div>

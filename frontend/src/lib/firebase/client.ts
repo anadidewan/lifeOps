@@ -1,20 +1,25 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 
+/** Strip whitespace and trailing commas from .env mistakes (invalid lines are ignored by Next; bad paste adds commas). */
+function envVal(v: string | undefined): string {
+  return (v ?? "").trim().replace(/,+$/g, "");
+}
+
 function readConfig() {
-  const projectId = (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "").trim();
-  const authDomainRaw = (process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? "").trim();
+  const projectId = envVal(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+  const authDomainRaw = envVal(process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN);
   const authDomain =
     authDomainRaw || (projectId ? `${projectId}.firebaseapp.com` : "");
 
   return {
-    apiKey: (process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "").trim(),
+    apiKey: envVal(process.env.NEXT_PUBLIC_FIREBASE_API_KEY),
     authDomain,
     projectId,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim(),
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID?.trim(),
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID?.trim(),
-    measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID?.trim(),
+    storageBucket: envVal(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET),
+    messagingSenderId: envVal(process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID),
+    appId: envVal(process.env.NEXT_PUBLIC_FIREBASE_APP_ID),
+    measurementId: envVal(process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID),
   };
 }
 

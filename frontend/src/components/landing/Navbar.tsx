@@ -14,7 +14,6 @@ import { cn } from "@/lib/cn";
 export function Navbar({ className }: { className?: string }) {
   const pathname = usePathname();
   const router = useRouter();
-  const onDashboard = pathname === "/dashboard";
   const onLanding = pathname === "/";
 
   const goToLandingSection = (sectionId: string) => {
@@ -47,17 +46,6 @@ export function Navbar({ className }: { className?: string }) {
             </span>
             <span className="text-lg font-semibold tracking-tight">LifeOS</span>
           </Link>
-          <motion.div whileHover={{ y: -1 }} transition={{ type: "spring", stiffness: 420, damping: 28 }}>
-            <Link
-              href="/dashboard"
-              className={cn(
-                "text-[13px] font-medium transition-colors",
-                onDashboard ? "text-white" : "text-slate-400 hover:text-white"
-              )}
-            >
-              Dashboard
-            </Link>
-          </motion.div>
         </div>
 
         <nav className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-9 md:flex">

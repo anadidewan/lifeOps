@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { RequireAuth } from "@/components/auth/RequireAuth";
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
 import { GlowBackdrop } from "@/components/landing/GlowBackdrop";
 import { Navbar } from "@/components/landing/Navbar";
@@ -13,7 +14,9 @@ export default function DashboardPage() {
     <div className="flex min-h-screen flex-col">
       <GlowBackdrop />
       <Navbar />
-      <DashboardClient />
+      <RequireAuth>
+        <DashboardClient />
+      </RequireAuth>
     </div>
   );
 }

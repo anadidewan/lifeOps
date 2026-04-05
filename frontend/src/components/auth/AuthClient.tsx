@@ -3,18 +3,10 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Eye, EyeOff, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GlassCard } from "@/components/landing/GlassCard";
-import {
-  formatAuthError,
-  sendPasswordReset,
-  signInWithApple,
-  signInWithEmail,
-  signInWithGoogle,
-  signUpWithEmail,
-  verifyTokenWithBackend,
-} from "@/lib/firebase/auth-flow";
-import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { useAuth } from "@/context/AuthContext";
+import { formatAuthError } from "@/lib/auth-errors";
 import { cn } from "@/lib/cn";
 
 type Mode = "signin" | "signup";
@@ -79,6 +71,13 @@ const socialBtnClass = cn(
 
 export function AuthClient() {
   const router = useRouter();
+  const {
+    user,
+    loading: authLoading,
+    signInWithEmailPassword,
+    signInWithGoogleDemo,
+    signInWithAppleDemo,
+  } = useAuth();
   const [mode, setMode] = useState<Mode>("signin");
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -87,11 +86,10 @@ export function AuthClient() {
   const [loading, setLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
 
-  async function completeSignIn(credential: { user: { getIdToken: () => Promise<string> } }) {
-    const idToken = await credential.user.getIdToken();
-    await verifyTokenWithBackend(idToken);
-    router.push("/dashboard");
-  }
+  useEffect(() => {
+    if (authLoading || !user) return;
+    router.replace("/dashboard");
+  }, [user, authLoading, router]);
 
   return (
     <motion.main
@@ -146,14 +144,6 @@ export function AuthClient() {
               aria-hidden
             />
             <div className="relative">
-              {!isFirebaseConfigured() && (
-                <p className="mb-4 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-100/90">
-                  Firebase is not configured. Copy{" "}
-                  <code className="rounded bg-white/10 px-1 py-0.5 text-[10px]">env.example</code> to{" "}
-                  <code className="rounded bg-white/10 px-1 py-0.5 text-[10px]">.env.local</code> and add
-                  your web app keys (same project as the backend).
-                </p>
-              )}
               {error && (
                 <p className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-center text-xs text-red-200/90">
                   {error}
@@ -188,21 +178,17 @@ export function AuthClient() {
                   e.preventDefault();
                   setError(null);
                   setResetMessage(null);
-                  if (!isFirebaseConfigured()) {
-                    setError("Firebase is not configured. Check .env.local.");
-                    return;
-                  }
                   if (!email.trim() || !password) {
                     setError("Enter your email and password.");
                     return;
                   }
                   setLoading(true);
                   try {
-                    const cred =
-                      mode === "signin"
-                        ? await signInWithEmail(email, password)
-                        : await signUpWithEmail(email, password);
-                    await completeSignIn(cred);
+                    signInWithEmailPassword(
+                      email,
+                      password,
+                      mode === "signin" ? "signin" : "signup"
+                    );
                   } catch (err) {
                     setError(formatAuthError(err));
                   } finally {
@@ -289,26 +275,16 @@ export function AuthClient() {
                           type="button"
                           className="text-xs font-medium text-violet-300/95 transition-colors hover:text-violet-200"
                           disabled={loading}
-                          onClick={async () => {
+                          onClick={() => {
                             setError(null);
                             setResetMessage(null);
-                            if (!isFirebaseConfigured()) {
-                              setError("Firebase is not configured. Check .env.local.");
-                              return;
-                            }
                             if (!email.trim()) {
                               setError("Enter your email address first.");
                               return;
                             }
-                            setLoading(true);
-                            try {
-                              await sendPasswordReset(email);
-                              setResetMessage("Check your inbox for a reset link.");
-                            } catch (err) {
-                              setError(formatAuthError(err));
-                            } finally {
-                              setLoading(false);
-                            }
+                            setResetMessage(
+                              "Demo mode: password reset is not connected. Use any password (6+ characters when creating an account) to continue."
+                            );
                           }}
                         >
                           Forgot password?
@@ -323,7 +299,11 @@ export function AuthClient() {
                   whileTap={{ scale: 0.995 }}
                   transition={{ type: "spring", stiffness: 400, damping: 24 }}
                 >
-                  <button type="submit" className={primaryBtnClass} disabled={loading}>
+                  <button
+                    type="submit"
+                    className={primaryBtnClass}
+                    disabled={loading}
+                  >
                     <span className="relative z-10">
                       {loading
                         ? mode === "signin"
@@ -360,17 +340,12 @@ export function AuthClient() {
                     type="button"
                     className={socialBtnClass}
                     disabled={loading}
-                    onClick={async () => {
+                    onClick={() => {
                       setError(null);
                       setResetMessage(null);
-                      if (!isFirebaseConfigured()) {
-                        setError("Firebase is not configured. Check .env.local.");
-                        return;
-                      }
                       setLoading(true);
                       try {
-                        const cred = await signInWithGoogle();
-                        await completeSignIn(cred);
+                        signInWithGoogleDemo();
                       } catch (err) {
                         setError(formatAuthError(err));
                       } finally {
@@ -391,17 +366,12 @@ export function AuthClient() {
                     type="button"
                     className={socialBtnClass}
                     disabled={loading}
-                    onClick={async () => {
+                    onClick={() => {
                       setError(null);
                       setResetMessage(null);
-                      if (!isFirebaseConfigured()) {
-                        setError("Firebase is not configured. Check .env.local.");
-                        return;
-                      }
                       setLoading(true);
                       try {
-                        const cred = await signInWithApple();
-                        await completeSignIn(cred);
+                        signInWithAppleDemo();
                       } catch (err) {
                         setError(formatAuthError(err));
                       } finally {

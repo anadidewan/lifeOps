@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
+import { AppProviders } from "@/components/providers/AppProviders";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -38,7 +39,7 @@ export default function RootLayout({
       className={`${plusJakarta.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[#030512] text-slate-100">
-        {children}
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

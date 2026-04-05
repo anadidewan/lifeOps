@@ -51,52 +51,27 @@ type EndOfDayReviewModalProps = {
   todaysTasks: PlanTask[];
 };
 
-export function EndOfDayReviewModal({ open, onClose, todaysTasks }: EndOfDayReviewModalProps) {
+/** Mounted only while `open`; fresh state each time the modal opens (no reset effect). */
+function EndOfDayReviewOverlay({
+  onClose,
+  todaysTasks,
+}: {
+  onClose: () => void;
+  todaysTasks: PlanTask[];
+}) {
   const [phase, setPhase] = useState<Phase>("form");
-  const [taskEntries, setTaskEntries] = useState<TaskReviewEntry[]>([]);
+  const [taskEntries, setTaskEntries] = useState<TaskReviewEntry[]>(() =>
+    todaysTasks.map((t) => ({
+      taskId: t.id,
+      taskName: t.name,
+      status: null,
+      completionValue: 40,
+    }))
+  );
   const [extraCompleted, setExtraCompleted] = useState<ExtraCompletedAssignment[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [summary, setSummary] = useState<EndOfDayReviewSummary | null>(null);
   const [lastPayload, setLastPayload] = useState<EndOfDayReviewPayload | null>(null);
-
-  const taskKey = useMemo(
-    () => todaysTasks.map((t) => t.id).join(","),
-    [todaysTasks]
-  );
-
-  useEffect(() => {
-    if (!open) return;
-    setPhase("form");
-    setTaskEntries(
-      todaysTasks.map((t) => ({
-        taskId: t.id,
-        taskName: t.name,
-        status: null,
-        completionValue: 40,
-      }))
-    );
-    setExtraCompleted([]);
-    setSearchQuery("");
-    setSummary(null);
-    setLastPayload(null);
-  }, [open, taskKey, todaysTasks]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  useEffect(() => {
-    if (open) document.body.style.overflow = "hidden";
-    else document.body.style.overflow = "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
 
   const setTaskStatus = useCallback((taskId: string, status: TaskReviewStatus) => {
     setTaskEntries((prev) =>
@@ -150,8 +125,6 @@ export function EndOfDayReviewModal({ open, onClose, todaysTasks }: EndOfDayRevi
   };
 
   return (
-    <AnimatePresence>
-      {open && (
         <motion.div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
           initial={{ opacity: 0 }}
@@ -400,7 +373,30 @@ export function EndOfDayReviewModal({ open, onClose, todaysTasks }: EndOfDayRevi
             </div>
           </motion.div>
         </motion.div>
-      )}
+  );
+}
+
+export function EndOfDayReviewModal({ open, onClose, todaysTasks }: EndOfDayReviewModalProps) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  useEffect(() => {
+    if (open) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
+  return (
+    <AnimatePresence>
+      {open && <EndOfDayReviewOverlay onClose={onClose} todaysTasks={todaysTasks} />}
     </AnimatePresence>
   );
 }
